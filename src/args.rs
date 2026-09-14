@@ -1,7 +1,11 @@
 use clap::Parser;
 
 #[derive(Debug, Parser)]
-pub struct Cli {}
+pub struct Cli {
+    /// Width of the game in terminal columns
+    #[arg(long, value_parser = clap::value_parser!(u16).range(1..))]
+    pub width: Option<u16>,
+}
 
 pub fn parse() -> Cli {
     Cli::parse()

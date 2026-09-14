@@ -10,9 +10,6 @@
  * - Dave Eddy <ysap@daveeddy.com>
  */
 
-use std::thread;
-use std::time::{Duration, Instant};
-
 use anyhow::{Context, Result};
 
 mod args;
@@ -26,11 +23,19 @@ const WIDTH: usize = 480;
 const HEIGHT: usize = 270;
 
 fn main() -> Result<()> {
-    let _args = args::parse();
+    let args = args::parse();
+    let display_width = match args.width {
+        Some(width) => width,
+        None => {
+            crossterm::terminal::size()
+                .context("could not read terminal size")?
+                .0
+        }
+    };
     let level = level::LevelDefinition::parse(LEVEL1)
         .context("could not parse level1")?;
 
-    println!("loaded level:\n{:#?}", level);
+    //println!("loaded level:\n{:#?}", level);
 
     /*
     let image =
@@ -39,7 +44,7 @@ fn main() -> Result<()> {
 
     // just render the level, no loop yet
     let frame = render::level(&level).context("could not render level1")?;
-    kitty_graphics::display_rgba(frame.as_raw(), WIDTH, HEIGHT)?;
+    kitty_graphics::display_rgba(frame.as_raw(), WIDTH, HEIGHT, display_width)?;
     println!();
 
     /*
