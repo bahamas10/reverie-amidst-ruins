@@ -13,6 +13,7 @@ pub type Color = [u8; 3];
 pub type Palette = [Color; 4];
 
 #[derive(Debug)]
+#[allow(unused)]
 pub struct LevelDefinition {
     pub name: String,
     pub music: String,
