@@ -1,0 +1,141 @@
+/*!
+ * Basic renderer - this will generate an image from the game state (eventually)
+ * that can then be displayed by *anything* that can display an image.  in our
+ * case that will be the kitty terminal protocol.
+ */
+
+use anyhow::{Context, Result};
+use image::{RgbaImage, imageops};
+
+use crate::level::{LevelDefinition, Palette};
+
+// size of the tiles in the tileset + the size we use to render them
+const TILE_SIZE: usize = 16;
+
+// locations of the tiles in tileset PNG
+const GROUND: (usize, usize) = (0, 0);
+const GROUND_TOP: (usize, usize) = (16, 0);
+const COIN: (usize, usize) = (32, 0);
+const PLAYER: (usize, usize) = (80, 0);
+const GOAL: (usize, usize) = (112, 0);
+
+const BACKGROUND: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
+const TILESET: &[u8] = include_bytes!("../assets/tiles/tileset.png");
+
+// ok, i don't know how i feel about this currently, but this is the exact
+// colors used in the tileset.  we find those colors and treat those as indices
+// - this means we can do "palette swaps" without adding new graphics.  the
+// palette data will be embedded in the level text
+const SOURCE_PALETTE: Palette = [
+    [0x07, 0x18, 0x21],
+    [0x16, 0x4b, 0x63],
+    [0x11, 0xd9, 0xc5],
+    [0xf2, 0xff, 0x66],
+];
+
+// convert the level to an image
+pub fn level(level: &LevelDefinition) -> Result<RgbaImage> {
+    // the background *is* our frame - eventually this should probably be a
+    // black image that we blit over
+    let mut frame = image::load_from_memory(BACKGROUND)
+        .context("could not decode snow.png")?
+        .into_rgba8();
+
+    let tileset = image::load_from_memory(TILESET)
+        .context("could not decode tileset.png")?
+        .into_rgba8();
+
+    // loop all the blocks
+    for (y, row) in level.blocks.iter().enumerate() {
+        for (x, &solid) in row.iter().enumerate() {
+            // don't render air
+            if !solid {
+                continue;
+            }
+
+            // idk if this is the best idea, but basically we have 2 tiles for
+            // ground, and which one is used is determined in code and not in
+            // the txt file
+            let block = if y == 0 || !level.blocks[y - 1][x] {
+                GROUND_TOP
+            } else {
+                GROUND
+            };
+
+            // draw the sprite onte the frame
+            sprite(
+                &mut frame,
+                &tileset,
+                block,
+                (x * TILE_SIZE, y * TILE_SIZE),
+                &level.palette,
+            );
+        }
+    }
+
+    // loop all the coins
+    for &(x, y) in &level.coins {
+        sprite(
+            &mut frame,
+            &tileset,
+            COIN,
+            (x * TILE_SIZE, y * TILE_SIZE),
+            &level.palette,
+        );
+    }
+
+    // draw player and spawn
+    sprite(
+        &mut frame,
+        &tileset,
+        GOAL,
+        (level.goal.0 * TILE_SIZE, level.goal.1 * TILE_SIZE),
+        &level.palette,
+    );
+    sprite(
+        &mut frame,
+        &tileset,
+        PLAYER,
+        (level.spawn.0 * TILE_SIZE, level.spawn.1 * TILE_SIZE),
+        &level.palette,
+    );
+
+    Ok(frame)
+}
+
+/**
+ * Helper to draw a single sprite to an image object
+ */
+fn sprite(
+    frame: &mut RgbaImage,
+    tileset: &RgbaImage,
+    source: (usize, usize),
+    destination: (usize, usize),
+    palette: &Palette,
+) {
+    // get the tile from the tileset
+    let mut tile = imageops::crop_imm(
+        tileset,
+        source.0 as u32,
+        source.1 as u32,
+        TILE_SIZE as u32,
+        TILE_SIZE as u32,
+    )
+    .to_image();
+
+    // copy it PIXEL BY PIXEL. yes actually, because we want to translate the
+    // color palette
+    // is this slow?
+    for pixel in tile.pixels_mut() {
+        // find the color in the "source" color palette to get the index
+        let pos = SOURCE_PALETTE.iter().position(|c| pixel.0[..3] == c[..]);
+
+        // translate the color, or make it transparent if it fails
+        match pos {
+            Some(idx) => pixel.0[..3].copy_from_slice(&palette[idx]),
+            None => pixel.0 = [0, 0, 0, 0],
+        };
+    }
+
+    imageops::overlay(frame, &tile, destination.0 as i64, destination.1 as i64);
+}

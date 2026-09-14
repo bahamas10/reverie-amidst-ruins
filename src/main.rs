@@ -18,19 +18,31 @@ use anyhow::{Context, Result};
 mod args;
 mod kitty_graphics;
 mod level;
+mod render;
 
-const IMAGE: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
 const LEVEL1: &str = include_str!("../levels/level1.txt");
+
+const WIDTH: usize = 480;
+const HEIGHT: usize = 270;
 
 fn main() -> Result<()> {
     let _args = args::parse();
     let level = level::LevelDefinition::parse(LEVEL1)
-        .context("invalid bundled level1.txt")?;
+        .context("could not parse level1")?;
 
     println!("loaded level:\n{:#?}", level);
 
+    /*
     let image =
         image::load_from_memory(IMAGE).expect("invalid image").into_rgba8();
+    */
+
+    // just render the level, no loop yet
+    let frame = render::level(&level).context("could not render level1")?;
+    kitty_graphics::display_rgba(frame.as_raw(), WIDTH, HEIGHT)?;
+    println!();
+
+    /*
 
     let target_fps = 60.0;
     let mut fps_timer = Instant::now();
@@ -68,6 +80,7 @@ fn main() -> Result<()> {
         // XXX: don't flood the screen lol
         thread::sleep(Duration::from_secs(1));
     }
+    */
 
-    unreachable!()
+    Ok(())
 }
