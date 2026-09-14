@@ -13,15 +13,21 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 mod args;
 mod kitty_graphics;
+mod level;
 
 const IMAGE: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
+const LEVEL1: &str = include_str!("../levels/level1.txt");
 
 fn main() -> Result<()> {
     let _args = args::parse();
+    let level = level::LevelDefinition::parse(LEVEL1)
+        .context("invalid bundled level1.txt")?;
+
+    println!("loaded level:\n{:#?}", level);
 
     let image =
         image::load_from_memory(IMAGE).expect("invalid image").into_rgba8();
