@@ -59,9 +59,7 @@ impl LevelDefinition {
         let mut goal = None;
 
         // parse geometry - loop each row
-        for (index, line) in lines {
-            let line_number = index + 1;
-
+        for (_, line) in lines {
             // loop each tile
             let mut row = Vec::new();
             for (column, tile) in line.chars().enumerate() {
@@ -140,7 +138,7 @@ fn parse_palette(value: &str) -> Result<Palette> {
             Ok([
                 ((value >> 16) & 0xff) as u8,
                 ((value >> 8) & 0xff) as u8,
-                ((value >> 0) & 0xff) as u8,
+                (value & 0xff) as u8,
             ])
         })
         .collect::<Result<Vec<_>>>()?;
