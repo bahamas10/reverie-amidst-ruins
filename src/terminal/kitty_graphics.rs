@@ -7,16 +7,16 @@
 
 use std::io::Write;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-use crossterm::{cursor, execute, terminal};
+use crossterm::{cursor, execute};
 use flate2::{Compression, write::ZlibEncoder};
 
-const APC_START: &[u8] = b"\x1b_G";
-const APC_END: &[u8] = b"\x1b\\";
-const MAX_PAYLOAD_SIZE: usize = 4096;
-const IMAGE_ID: u32 = 1;
-const PLACEMENT_ID: u32 = 1;
+pub const APC_START: &[u8] = b"\x1b_G";
+pub const APC_END: &[u8] = b"\x1b\\";
+pub const MAX_PAYLOAD_SIZE: usize = 4096;
+pub const IMAGE_ID: u32 = 1;
+pub const PLACEMENT_ID: u32 = 1;
 
 /// Displays raw RGBA pixels at the home location
 pub fn display_rgba(

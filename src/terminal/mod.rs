@@ -8,15 +8,9 @@
 use std::io::Write;
 
 use anyhow::{Context, Result};
-use base64::{Engine as _, engine::general_purpose::STANDARD};
 use crossterm::{cursor, execute, terminal};
-use flate2::{Compression, write::ZlibEncoder};
 
-const APC_START: &[u8] = b"\x1b_G";
-const APC_END: &[u8] = b"\x1b\\";
-const MAX_PAYLOAD_SIZE: usize = 4096;
-const IMAGE_ID: u32 = 1;
-const PLACEMENT_ID: u32 = 1;
+pub mod kitty_graphics;
 
 /**
  * Abstraction over the terminal so we can hide the cursor and enter the
@@ -47,7 +41,11 @@ impl Terminal {
         let mut stdout = std::io::stdout();
 
         // delete the kitty image
-        write!(stdout, "\x1b_Ga=d,d=I,i={IMAGE_ID},q=2;\x1b\\")?;
+        write!(
+            stdout,
+            "\x1b_Ga=d,d=I,i={},q=2;\x1b\\",
+            kitty_graphics::IMAGE_ID
+        )?;
 
         execute!(stdout, cursor::Show, terminal::LeaveAlternateScreen)
             .context("could not deinit the terminal")?;

@@ -18,7 +18,6 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 
 mod args;
-mod kitty_graphics;
 mod level;
 mod render;
 mod terminal;
@@ -78,7 +77,7 @@ fn main() -> Result<()> {
         let frame = render::level(&level).context("could not render level1")?;
 
         // display the frame
-        kitty_graphics::display_rgba(
+        terminal::kitty_graphics::display_rgba(
             frame.as_raw(),
             WIDTH,
             HEIGHT,
