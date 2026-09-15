@@ -11,14 +11,16 @@ use crate::level::{LevelDefinition, Palette};
 
 // size of the tiles in the tileset + the size we use to render them
 const TILE_SIZE: usize = 16;
+const COIN_ANIMATION_NUM: f32 = 8.0; // 8 rotations per second
 
 // locations of the tiles in tileset PNG
 const GROUND: (usize, usize) = (0, 0);
 const GROUND_TOP: (usize, usize) = (16, 0);
-const COIN: (usize, usize) = (32, 0);
+const COIN_FRAMES: [(usize, usize); 4] = [(32, 0), (48, 0), (64, 0), (48, 0)];
 const PLAYER: (usize, usize) = (80, 0);
 const GOAL: (usize, usize) = (112, 0);
 
+// images
 const BACKGROUND: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
 const TILESET: &[u8] = include_bytes!("../assets/tiles/tileset.png");
 
@@ -34,7 +36,7 @@ const SOURCE_PALETTE: Palette = [
 ];
 
 // convert the level to an image
-pub fn level(level: &LevelDefinition) -> Result<RgbaImage> {
+pub fn level(level: &LevelDefinition, elapsed: f32) -> Result<RgbaImage> {
     // the background *is* our frame - eventually this should probably be a
     // black image that we blit over
     let mut frame = image::load_from_memory(BACKGROUND)
@@ -73,12 +75,14 @@ pub fn level(level: &LevelDefinition) -> Result<RgbaImage> {
         }
     }
 
-    // loop all the coins
+    // loop through the coin sprites and animate them
+    let coin = COIN_FRAMES
+        [(elapsed * COIN_ANIMATION_NUM) as usize % COIN_FRAMES.len()];
     for &(x, y) in &level.coins {
         sprite(
             &mut frame,
             &tileset,
-            COIN,
+            coin,
             (x * TILE_SIZE, y * TILE_SIZE),
             &level.palette,
         );

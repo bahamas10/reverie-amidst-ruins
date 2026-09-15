@@ -68,13 +68,16 @@ fn main() -> Result<()> {
 
     // game loop
     let mut last_time = Instant::now();
+    let mut elapsed = 0.0;
     while !shutdown.load(Ordering::Relaxed) {
         let now = Instant::now();
-        let _delta = now.duration_since(last_time);
+        let delta = now.duration_since(last_time);
         last_time = now;
+        elapsed += delta.as_secs_f32();
 
         // render the frame
-        let frame = render::level(&level).context("could not render level1")?;
+        let frame = render::level(&level, elapsed)
+            .context("could not render level1")?;
 
         // display the frame
         terminal::kitty_graphics::display_rgba(
