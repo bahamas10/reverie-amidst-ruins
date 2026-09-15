@@ -59,6 +59,8 @@ fn main() -> Result<()> {
         (level.spawn.1 * level::TILE_SIZE) as f32,
     );
     let mut camera = Camera::default();
+    let mut remaining_coins = level.coins.clone();
+    let mut coin_count = 0;
 
     // target FPS
     let target_fps = 60.0;
@@ -92,19 +94,38 @@ fn main() -> Result<()> {
         );
         input.jump_pressed = false;
 
-        // reset after falling below the level
+        // death: reset after falling below the level
         let level_height = (level.height * level::TILE_SIZE) as f32;
         if player.y > level_height + DEATH_PLANE {
-            // todo: keep track of number of deaths?
+            // player died! reset the player and the level
             player.reset();
+            remaining_coins = level.coins.clone();
+            coin_count = 0;
+        } else {
+            // player still alive
+
+            // check if we touched any coins
+            remaining_coins.retain(|&(x, y)| {
+                let collected = player.overlaps(
+                    (x * level::TILE_SIZE) as f32,
+                    (y * level::TILE_SIZE) as f32,
+                    level::TILE_SIZE as f32,
+                    level::TILE_SIZE as f32,
+                );
+                if collected {
+                    coin_count += 1;
+                }
+                !collected
+            });
         }
 
         // update the camera
         camera.follow(&player, level_width, WIDTH as f32);
 
         // render the frame
-        let frame = render::level(&level, &player, &camera, elapsed)
-            .context("could not render level1")?;
+        let frame =
+            render::level(&level, &player, &camera, &remaining_coins, elapsed)
+                .context("could not render level1")?;
 
         // display the frame
         terminal::kitty_graphics::display_rgba(
@@ -122,7 +143,7 @@ fn main() -> Result<()> {
             fps_frame_count = 0;
             fps_timer = Instant::now();
         }
-        println!("fps = {:.1}\r", fps);
+        println!("fps = {:.1} | coins = {}    \r", fps, coin_count);
 
         // naive: sleep to ensure the target fps
         let elapsed = now.elapsed();

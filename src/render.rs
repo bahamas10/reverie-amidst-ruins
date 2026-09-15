@@ -44,6 +44,7 @@ pub fn level(
     level: &LevelDefinition,
     player: &Player,
     camera: &Camera,
+    coins: &[(usize, usize)],
     elapsed: f32,
 ) -> Result<RgbaImage> {
     // load the background and get it ready to parallax
@@ -108,7 +109,7 @@ pub fn level(
     // loop through the coin sprites and animate them
     let coin = COIN_FRAMES
         [(elapsed * COIN_ANIMATION_NUM) as usize % COIN_FRAMES.len()];
-    for &(x, y) in &level.coins {
+    for &(x, y) in coins {
         sprite(
             &mut frame,
             &tileset,

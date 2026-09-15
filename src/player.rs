@@ -36,6 +36,13 @@ impl Player {
         self.grounded = false;
     }
 
+    pub fn overlaps(&self, x: f32, y: f32, width: f32, height: f32) -> bool {
+        self.x < x + width
+            && self.x + SIZE > x
+            && self.y < y + height
+            && self.y + SIZE > y
+    }
+
     pub fn update(
         &mut self,
         input: &Input,
