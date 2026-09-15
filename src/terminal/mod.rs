@@ -17,6 +17,14 @@ use crossterm::{cursor, execute, terminal};
 
 pub mod kitty_graphics;
 
+#[derive(Clone, Copy)]
+pub struct ImagePlacement {
+    pub column: u16,
+    pub row: u16,
+    pub width: u16,
+    pub height: u16,
+}
+
 /**
  * Abstraction over the terminal so we can hide the cursor and enter the
  * alternate screen and correctly (to the best of our ability) handle cleanup by
@@ -25,10 +33,14 @@ pub mod kitty_graphics;
 pub struct Terminal {
     active: bool,
     keyboard_flags: bool,
+    size: terminal::WindowSize,
 }
 
 impl Terminal {
     pub fn init() -> Result<Self> {
+        let size =
+            terminal::window_size().context("could not read terminal size")?;
+
         terminal::enable_raw_mode().context("could not enable raw mode")?;
 
         let mut stdout = std::io::stdout();
@@ -50,9 +62,49 @@ impl Terminal {
         )
         .is_ok();
 
-        Ok(Self { active: true, keyboard_flags })
+        Ok(Self { active: true, keyboard_flags, size })
     }
 
+    /// figure out where to place an image based on the terminal size and
+    /// optionally a requested width by the caller
+    pub fn image_placement(
+        &self,
+        image_width: usize,
+        image_height: usize,
+        requested_width: Option<u16>,
+    ) -> ImagePlacement {
+        let columns = self.size.columns.max(1);
+        let rows = self.size.rows.max(1);
+
+        let cell_width = self.size.width.max(1) as f32 / columns as f32;
+        let cell_height = self.size.height.max(1) as f32 / rows as f32;
+
+        let mut width = requested_width.unwrap_or(columns).min(columns).max(1);
+        let mut height = (width as f32 * image_height as f32 * cell_width
+            / (image_width as f32 * cell_height))
+            .ceil() as u16;
+
+        if height > rows {
+            height = rows;
+            width = (height as f32 * image_width as f32 * cell_height
+                / (image_height as f32 * cell_width))
+                .floor() as u16;
+        }
+
+        // we could probably enforce something sane here tbh
+        width = width.max(1);
+        height = height.max(1);
+
+        // center the image always
+        ImagePlacement {
+            column: (columns - width) / 2,
+            row: (rows - height) / 2,
+            width,
+            height,
+        }
+    }
+
+    /// Read terminal events, react to some, and return all key events
     pub fn read_events(&mut self) -> Result<Vec<KeyEvent>> {
         let mut events = vec![];
         loop {
@@ -64,8 +116,13 @@ impl Terminal {
             }
 
             let ev = event::read().context("could not read terminal input")?;
-            if let Event::Key(key) = ev {
-                events.push(key);
+            match ev {
+                Event::Key(key) => events.push(key),
+                Event::Resize(_, _) => {
+                    self.size = terminal::window_size()
+                        .context("could not read terminal size")?;
+                }
+                _ => {}
             }
         }
 

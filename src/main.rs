@@ -37,16 +37,6 @@ fn main() -> Result<()> {
     // parse args
     let args = args::parse();
 
-    // get terminal width (default to full size)
-    let display_width = match args.width {
-        Some(width) => width,
-        None => {
-            crossterm::terminal::size()
-                .context("could not read terminal size")?
-                .0
-        }
-    };
-
     // parse the level
     let level = level::LevelDefinition::parse(LEVEL1)
         .context("could not parse level1")?;
@@ -135,11 +125,16 @@ fn main() -> Result<()> {
         .context("could not render level1")?;
 
         // display the frame
+        let placement = term_handle.image_placement(
+            frame.width() as usize,
+            frame.height() as usize,
+            args.width,
+        );
         terminal::kitty_graphics::display_rgba(
             frame.as_raw(),
             frame.width() as usize,
             frame.height() as usize,
-            display_width,
+            placement,
         )?;
 
         // display FPS

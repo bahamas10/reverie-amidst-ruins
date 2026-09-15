@@ -12,23 +12,25 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use crossterm::{cursor, execute};
 use flate2::{Compression, write::ZlibEncoder};
 
+use super::ImagePlacement;
+
 pub const APC_START: &[u8] = b"\x1b_G";
 pub const APC_END: &[u8] = b"\x1b\\";
 pub const MAX_PAYLOAD_SIZE: usize = 4096;
 pub const IMAGE_ID: u32 = 1;
 pub const PLACEMENT_ID: u32 = 1;
 
-/// Displays raw RGBA pixels at the home location
+/// Displays raw RGBA pixels at the requested terminal placement
 pub fn display_rgba(
     data: &[u8],
     width: usize,
     height: usize,
-    display_width: u16,
+    placement: ImagePlacement,
 ) -> Result<()> {
     let mut stdout = std::io::stdout().lock();
 
-    execute!(stdout, cursor::MoveTo(0, 0))?;
-    write_rgba(&mut stdout, data, width, height, display_width)?;
+    execute!(stdout, cursor::MoveTo(placement.column, placement.row))?;
+    write_rgba(&mut stdout, data, width, height, placement)?;
 
     stdout.flush()?;
 
@@ -40,7 +42,7 @@ fn write_rgba(
     data: &[u8],
     width: usize,
     height: usize,
-    display_width: u16,
+    placement: ImagePlacement,
 ) -> Result<()> {
     // compress the image because omg it's slow to render
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
@@ -59,14 +61,15 @@ fn write_rgba(
             // f=32: 32bit RGBA data
             // s=width: image width
             // v=height: image height
-            // c=display_width: width in terminal columns
+            // c/r: display size in terminal columns and rows
             // i/p: replace the same image placement every frame
             // o=z: image data is compressed with zlib
             // C=1: don't move the cursor
             // q=2: quiet errors
             write!(
                 output,
-                "a=T,f=32,s={width},v={height},c={display_width},i={IMAGE_ID},p={PLACEMENT_ID},o=z,C=1,q=2,"
+                "a=T,f=32,s={width},v={height},c={},r={},i={IMAGE_ID},p={PLACEMENT_ID},o=z,C=1,q=2,",
+                placement.width, placement.height,
             )?;
             first = false;
         }
