@@ -6,8 +6,13 @@
  */
 
 use std::io::Write;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
+use crossterm::event::{
+    self, Event, KeyEvent, KeyboardEnhancementFlags,
+    PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
 use crossterm::{cursor, execute, terminal};
 
 pub mod kitty_graphics;
@@ -19,18 +24,52 @@ pub mod kitty_graphics;
  */
 pub struct Terminal {
     active: bool,
+    keyboard_flags: bool,
 }
 
 impl Terminal {
     pub fn init() -> Result<Self> {
+        terminal::enable_raw_mode().context("could not enable raw mode")?;
+
+        let mut stdout = std::io::stdout();
         execute!(
-            std::io::stdout(),
+            stdout,
             terminal::EnterAlternateScreen,
             terminal::Clear(terminal::ClearType::All),
             cursor::Hide
         )
         .context("could not init terminal")?;
-        Ok(Self { active: true })
+
+        // enable terminal for geting keyboard events
+        let keyboard_flags = execute!(
+            stdout,
+            PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            )
+        )
+        .is_ok();
+
+        Ok(Self { active: true, keyboard_flags })
+    }
+
+    pub fn read_events(&mut self) -> Result<Vec<KeyEvent>> {
+        let mut events = vec![];
+        loop {
+            let poll = event::poll(Duration::ZERO)
+                .context("could not poll terminal input")?;
+
+            if !poll {
+                break;
+            }
+
+            let ev = event::read().context("could not read terminal input")?;
+            if let Event::Key(key) = ev {
+                events.push(key);
+            }
+        }
+
+        Ok(events)
     }
 
     pub fn deinit(&mut self) -> Result<()> {
@@ -47,8 +86,14 @@ impl Terminal {
             kitty_graphics::IMAGE_ID
         )?;
 
+        // restore the keyboard events if they were set
+        if self.keyboard_flags {
+            execute!(stdout, PopKeyboardEnhancementFlags)?;
+        }
+
         execute!(stdout, cursor::Show, terminal::LeaveAlternateScreen)
             .context("could not deinit the terminal")?;
+        terminal::disable_raw_mode().context("could not disable raw mode")?;
 
         self.active = false;
 

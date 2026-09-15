@@ -10,14 +10,13 @@
  * - Dave Eddy <ysap@daveeddy.com>
  */
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 
 mod args;
+mod input;
 mod level;
 mod render;
 mod terminal;
@@ -47,17 +46,9 @@ fn main() -> Result<()> {
     let level = level::LevelDefinition::parse(LEVEL1)
         .context("could not parse level1")?;
 
-    // wire up ctrl-c: this will probably change once we parse input from the
-    // user and accept Q or ESC.
-    let shutdown = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(
-        signal_hook::consts::SIGINT,
-        Arc::clone(&shutdown),
-    )
-    .context("could not install SIGINT handler")?;
-
     // hold this handle so it'll go out of scope and de-init when done
-    let _term_handle = Terminal::init()?;
+    let mut term_handle = Terminal::init()?;
+    let mut input = input::Input::default();
 
     // target FPS
     let target_fps = 60.0;
@@ -69,11 +60,17 @@ fn main() -> Result<()> {
     // game loop
     let mut last_time = Instant::now();
     let mut elapsed = 0.0;
-    while !shutdown.load(Ordering::Relaxed) {
+    while !input.quit {
         let now = Instant::now();
         let delta = now.duration_since(last_time);
         last_time = now;
         elapsed += delta.as_secs_f32();
+
+        // read all pending terminal input
+        let events = term_handle.read_events()?;
+        for event in events {
+            input.handle_key(event);
+        }
 
         // render the frame
         let frame = render::level(&level, elapsed)
