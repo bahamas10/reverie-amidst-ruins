@@ -31,6 +31,7 @@ const LEVEL1: &str = include_str!("../levels/level1.txt");
 
 const WIDTH: usize = 480;
 const HEIGHT: usize = 270;
+const DEATH_PLANE: f32 = 70.0;
 
 fn main() -> Result<()> {
     // parse args
@@ -90,6 +91,13 @@ fn main() -> Result<()> {
             level_width - level::TILE_SIZE as f32,
         );
         input.jump_pressed = false;
+
+        // reset after falling below the level
+        let level_height = (level.height * level::TILE_SIZE) as f32;
+        if player.y > level_height + DEATH_PLANE {
+            // todo: keep track of number of deaths?
+            player.reset();
+        }
 
         // update the camera
         camera.follow(&player, level_width, WIDTH as f32);

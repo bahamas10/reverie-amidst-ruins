@@ -19,11 +19,21 @@ pub struct Player {
     pub vy: f32,
     pub vx: f32,
     pub grounded: bool,
+    pub spawn_x: f32,
+    pub spawn_y: f32,
 }
 
 impl Player {
     pub fn new(x: f32, y: f32) -> Self {
-        Self { x, y, vy: 0.0, vx: 0.0, grounded: false }
+        Self { x, y, vy: 0.0, vx: 0.0, grounded: false, spawn_x: x, spawn_y: y }
+    }
+
+    pub fn reset(&mut self) {
+        self.x = self.spawn_x;
+        self.y = self.spawn_y;
+        self.vx = 0.0;
+        self.vy = 0.0;
+        self.grounded = false;
     }
 
     pub fn update(
