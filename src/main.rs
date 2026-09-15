@@ -18,9 +18,11 @@ use anyhow::{Context, Result};
 mod args;
 mod input;
 mod level;
+mod player;
 mod render;
 mod terminal;
 
+use player::Player;
 use terminal::Terminal;
 
 const LEVEL1: &str = include_str!("../levels/level1.txt");
@@ -49,6 +51,10 @@ fn main() -> Result<()> {
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;
     let mut input = input::Input::default();
+    let mut player = Player::new(
+        (level.spawn.0 * render::TILE_SIZE) as f32,
+        (level.spawn.1 * render::TILE_SIZE) as f32,
+    );
 
     // target FPS
     let target_fps = 60.0;
@@ -72,8 +78,21 @@ fn main() -> Result<()> {
             input.handle_key(event);
         }
 
+        // move the player horizontally
+        let level_width = (level.width * render::TILE_SIZE) as f32;
+        player.update(
+            &input,
+            delta.as_secs_f32(),
+            level_width - render::TILE_SIZE as f32,
+        );
+
+        // keep the player centered once they move away from the level edges
+        let camera_x = (player.x + render::TILE_SIZE as f32 / 2.0
+            - WIDTH as f32 / 2.0)
+            .clamp(0.0, (level_width - WIDTH as f32).max(0.0));
+
         // render the frame
-        let frame = render::level(&level, elapsed)
+        let frame = render::level(&level, &player, elapsed, camera_x)
             .context("could not render level1")?;
 
         // display the frame

@@ -8,9 +8,12 @@ use anyhow::{Context, Result};
 use image::{RgbaImage, imageops};
 
 use crate::level::{LevelDefinition, Palette};
+use crate::player::Player;
 
 // size of the tiles in the tileset + the size we use to render them
-const TILE_SIZE: usize = 16;
+pub const TILE_SIZE: usize = 16;
+
+// animations
 const COIN_ANIMATION_NUM: f32 = 8.0; // 8 rotations per second
 
 // locations of the tiles in tileset PNG
@@ -36,7 +39,12 @@ const SOURCE_PALETTE: Palette = [
 ];
 
 // convert the level to an image
-pub fn level(level: &LevelDefinition, elapsed: f32) -> Result<RgbaImage> {
+pub fn level(
+    level: &LevelDefinition,
+    player: &Player,
+    elapsed: f32,
+    camera_x: f32,
+) -> Result<RgbaImage> {
     // the background *is* our frame - eventually this should probably be a
     // black image that we blit over
     let mut frame = image::load_from_memory(BACKGROUND)
@@ -46,6 +54,7 @@ pub fn level(level: &LevelDefinition, elapsed: f32) -> Result<RgbaImage> {
     let tileset = image::load_from_memory(TILESET)
         .context("could not decode tileset.png")?
         .into_rgba8();
+    let camera_x = camera_x.round() as i32;
 
     // loop all the blocks
     for (y, row) in level.blocks.iter().enumerate() {
@@ -69,7 +78,7 @@ pub fn level(level: &LevelDefinition, elapsed: f32) -> Result<RgbaImage> {
                 &mut frame,
                 &tileset,
                 block,
-                (x * TILE_SIZE, y * TILE_SIZE),
+                ((x * TILE_SIZE) as i32 - camera_x, (y * TILE_SIZE) as i32),
                 &level.palette,
             );
         }
@@ -83,7 +92,7 @@ pub fn level(level: &LevelDefinition, elapsed: f32) -> Result<RgbaImage> {
             &mut frame,
             &tileset,
             coin,
-            (x * TILE_SIZE, y * TILE_SIZE),
+            ((x * TILE_SIZE) as i32 - camera_x, (y * TILE_SIZE) as i32),
             &level.palette,
         );
     }
@@ -93,14 +102,17 @@ pub fn level(level: &LevelDefinition, elapsed: f32) -> Result<RgbaImage> {
         &mut frame,
         &tileset,
         GOAL,
-        (level.goal.0 * TILE_SIZE, level.goal.1 * TILE_SIZE),
+        (
+            (level.goal.0 * TILE_SIZE) as i32 - camera_x,
+            (level.goal.1 * TILE_SIZE) as i32,
+        ),
         &level.palette,
     );
     sprite(
         &mut frame,
         &tileset,
         PLAYER,
-        (level.spawn.0 * TILE_SIZE, level.spawn.1 * TILE_SIZE),
+        (player.x.round() as i32 - camera_x, player.y.round() as i32),
         &level.palette,
     );
 
@@ -114,7 +126,7 @@ fn sprite(
     frame: &mut RgbaImage,
     tileset: &RgbaImage,
     source: (usize, usize),
-    destination: (usize, usize),
+    destination: (i32, i32),
     palette: &Palette,
 ) {
     // get the tile from the tileset
@@ -141,5 +153,5 @@ fn sprite(
         };
     }
 
-    imageops::overlay(frame, &tile, destination.0 as i64, destination.1 as i64);
+    imageops::overlay(frame, &tile, destination.0.into(), destination.1.into());
 }
