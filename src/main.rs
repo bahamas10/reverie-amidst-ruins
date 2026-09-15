@@ -91,13 +91,8 @@ fn main() -> Result<()> {
         );
         input.jump_pressed = false;
 
-        // keep the player centered once they move away from the level edges
-        camera.follow(
-            &player,
-            level_width,
-            WIDTH as f32,
-            level::TILE_SIZE as f32,
-        );
+        // update the camera
+        camera.follow(&player, level_width, WIDTH as f32);
 
         // render the frame
         let frame = render::level(&level, &player, &camera, elapsed)

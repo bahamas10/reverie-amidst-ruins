@@ -4,6 +4,9 @@
 
 use crate::player::Player;
 
+// try to keep the player at 40% horizontally
+const PLAYER_SCREEN_POSITION: f32 = 0.40;
+
 #[derive(Default)]
 pub struct Camera {
     pub x: f32,
@@ -16,9 +19,8 @@ impl Camera {
         player: &Player,
         level_width: f32,
         viewport_width: f32,
-        player_width: f32,
     ) {
-        self.x = (player.x + player_width / 2.0 - viewport_width / 2.0)
+        self.x = (player.x - viewport_width * PLAYER_SCREEN_POSITION)
             .clamp(0.0, (level_width - viewport_width).max(0.0));
     }
 
