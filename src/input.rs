@@ -34,7 +34,10 @@ impl Input {
             KeyCode::Left | KeyCode::Char('a' | 'A') => self.left = is_down,
             KeyCode::Right | KeyCode::Char('d' | 'D') => self.right = is_down,
             KeyCode::Char(' ') => {
-                self.jump_pressed = is_pressed;
+                if is_pressed {
+                    // we will *always* unset this after we update the player
+                    self.jump_pressed = true;
+                }
                 self.jump = is_down;
             }
             KeyCode::Esc | KeyCode::Char('q' | 'Q') => self.quit = is_down,

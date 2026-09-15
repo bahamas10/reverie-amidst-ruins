@@ -54,8 +54,8 @@ fn main() -> Result<()> {
     let mut term_handle = Terminal::init()?;
     let mut input = input::Input::default();
     let mut player = Player::new(
-        (level.spawn.0 * render::TILE_SIZE) as f32,
-        (level.spawn.1 * render::TILE_SIZE) as f32,
+        (level.spawn.0 * level::TILE_SIZE) as f32,
+        (level.spawn.1 * level::TILE_SIZE) as f32,
     );
     let mut camera = Camera::default();
 
@@ -81,20 +81,22 @@ fn main() -> Result<()> {
             input.handle_key(event);
         }
 
-        // move the player horizontally
-        let level_width = (level.width * render::TILE_SIZE) as f32;
+        // update the player
+        let level_width = (level.width * level::TILE_SIZE) as f32;
         player.update(
             &input,
             delta.as_secs_f32(),
-            level_width - render::TILE_SIZE as f32,
+            &level.blocks,
+            level_width - level::TILE_SIZE as f32,
         );
+        input.jump_pressed = false;
 
         // keep the player centered once they move away from the level edges
         camera.follow(
             &player,
             level_width,
             WIDTH as f32,
-            render::TILE_SIZE as f32,
+            level::TILE_SIZE as f32,
         );
 
         // render the frame

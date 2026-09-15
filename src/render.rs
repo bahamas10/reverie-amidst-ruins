@@ -8,11 +8,8 @@ use anyhow::{Context, Result};
 use image::{RgbaImage, imageops};
 
 use crate::camera::Camera;
-use crate::level::{LevelDefinition, Palette};
+use crate::level::{LevelDefinition, Palette, TILE_SIZE};
 use crate::player::Player;
-
-// size of the tiles in the tileset + the size we use to render them
-pub const TILE_SIZE: usize = 16;
 
 // animations
 const COIN_ANIMATION_NUM: f32 = 8.0; // 8 rotations per second

@@ -6,6 +6,8 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result, bail, ensure};
 
+pub const TILE_SIZE: usize = 16;
+
 /// every color is just [R, G, B]
 pub type Color = [u8; 3];
 
