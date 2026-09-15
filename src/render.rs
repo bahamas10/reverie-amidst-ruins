@@ -25,7 +25,7 @@ const GROUND: (usize, usize) = (0, 0);
 const GROUND_TOP: (usize, usize) = (16, 0);
 const COIN_FRAMES: [(usize, usize); 4] = [(32, 0), (48, 0), (64, 0), (48, 0)];
 const PLAYER: (usize, usize) = (80, 0);
-const GOAL: (usize, usize) = (112, 0);
+const GOAL: (usize, usize) = (96, 0);
 
 // images
 const BACKGROUND: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
@@ -124,7 +124,7 @@ pub fn level(
         );
     }
 
-    // draw player and spawn
+    // draw player and goal
     sprite(
         &mut frame,
         &tileset,
