@@ -7,6 +7,7 @@
 use anyhow::{Context, Result};
 use image::{RgbaImage, imageops};
 
+use crate::camera::Camera;
 use crate::level::{LevelDefinition, Palette};
 use crate::player::Player;
 
@@ -42,8 +43,8 @@ const SOURCE_PALETTE: Palette = [
 pub fn level(
     level: &LevelDefinition,
     player: &Player,
+    camera: &Camera,
     elapsed: f32,
-    camera_x: f32,
 ) -> Result<RgbaImage> {
     // the background *is* our frame - eventually this should probably be a
     // black image that we blit over
@@ -54,7 +55,6 @@ pub fn level(
     let tileset = image::load_from_memory(TILESET)
         .context("could not decode tileset.png")?
         .into_rgba8();
-    let camera_x = camera_x.round() as i32;
 
     // loop all the blocks
     for (y, row) in level.blocks.iter().enumerate() {
@@ -78,7 +78,10 @@ pub fn level(
                 &mut frame,
                 &tileset,
                 block,
-                ((x * TILE_SIZE) as i32 - camera_x, (y * TILE_SIZE) as i32),
+                camera.world_to_screen(
+                    (x * TILE_SIZE) as f32,
+                    (y * TILE_SIZE) as f32,
+                ),
                 &level.palette,
             );
         }
@@ -92,7 +95,10 @@ pub fn level(
             &mut frame,
             &tileset,
             coin,
-            ((x * TILE_SIZE) as i32 - camera_x, (y * TILE_SIZE) as i32),
+            camera.world_to_screen(
+                (x * TILE_SIZE) as f32,
+                (y * TILE_SIZE) as f32,
+            ),
             &level.palette,
         );
     }
@@ -102,9 +108,9 @@ pub fn level(
         &mut frame,
         &tileset,
         GOAL,
-        (
-            (level.goal.0 * TILE_SIZE) as i32 - camera_x,
-            (level.goal.1 * TILE_SIZE) as i32,
+        camera.world_to_screen(
+            (level.goal.0 * TILE_SIZE) as f32,
+            (level.goal.1 * TILE_SIZE) as f32,
         ),
         &level.palette,
     );
@@ -112,7 +118,7 @@ pub fn level(
         &mut frame,
         &tileset,
         PLAYER,
-        (player.x.round() as i32 - camera_x, player.y.round() as i32),
+        camera.world_to_screen(player.x, player.y),
         &level.palette,
     );
 

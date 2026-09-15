@@ -16,12 +16,14 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 
 mod args;
+mod camera;
 mod input;
 mod level;
 mod player;
 mod render;
 mod terminal;
 
+use camera::Camera;
 use player::Player;
 use terminal::Terminal;
 
@@ -55,6 +57,7 @@ fn main() -> Result<()> {
         (level.spawn.0 * render::TILE_SIZE) as f32,
         (level.spawn.1 * render::TILE_SIZE) as f32,
     );
+    let mut camera = Camera::default();
 
     // target FPS
     let target_fps = 60.0;
@@ -87,12 +90,15 @@ fn main() -> Result<()> {
         );
 
         // keep the player centered once they move away from the level edges
-        let camera_x = (player.x + render::TILE_SIZE as f32 / 2.0
-            - WIDTH as f32 / 2.0)
-            .clamp(0.0, (level_width - WIDTH as f32).max(0.0));
+        camera.follow(
+            &player,
+            level_width,
+            WIDTH as f32,
+            render::TILE_SIZE as f32,
+        );
 
         // render the frame
-        let frame = render::level(&level, &player, elapsed, camera_x)
+        let frame = render::level(&level, &player, &camera, elapsed)
             .context("could not render level1")?;
 
         // display the frame
