@@ -5,24 +5,77 @@
  * Based on https://sw.kovidgoyal.net/kitty/graphics-protocol/
  */
 
-use std::io::{self, Write};
+use std::io::Write;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
+use crossterm::{cursor, execute, terminal};
+use flate2::{Compression, write::ZlibEncoder};
 
 const APC_START: &[u8] = b"\x1b_G";
 const APC_END: &[u8] = b"\x1b\\";
 const MAX_PAYLOAD_SIZE: usize = 4096;
+const IMAGE_ID: u32 = 1;
+const PLACEMENT_ID: u32 = 1;
 
-/// Displays raw RGBA pixels at the cursor using to stdout
+/**
+ * Abstraction over the terminal so we can hide the cursor and enter the
+ * alternate screen and correctly (to the best of our ability) handle cleanup by
+ * implementing `Drop`
+ */
+pub struct Terminal {
+    active: bool,
+}
+
+impl Terminal {
+    pub fn init() -> Result<Self> {
+        execute!(
+            std::io::stdout(),
+            terminal::EnterAlternateScreen,
+            terminal::Clear(terminal::ClearType::All),
+            cursor::Hide
+        )
+        .context("could not init terminal")?;
+        Ok(Self { active: true })
+    }
+
+    pub fn deinit(&mut self) -> Result<()> {
+        if !self.active {
+            return Ok(());
+        }
+
+        let mut stdout = std::io::stdout();
+
+        // delete the kitty image
+        write!(stdout, "\x1b_Ga=d,d=I,i={IMAGE_ID},q=2;\x1b\\")?;
+
+        execute!(stdout, cursor::Show, terminal::LeaveAlternateScreen)
+            .context("could not deinit the terminal")?;
+
+        self.active = false;
+
+        Ok(())
+    }
+}
+
+impl Drop for Terminal {
+    fn drop(&mut self) {
+        let _ = self.deinit();
+    }
+}
+
+/// Displays raw RGBA pixels at the home location
 pub fn display_rgba(
     data: &[u8],
     width: usize,
     height: usize,
     display_width: u16,
 ) -> Result<()> {
-    let mut stdout = io::stdout().lock();
+    let mut stdout = std::io::stdout().lock();
+
+    execute!(stdout, cursor::MoveTo(0, 0))?;
     write_rgba(&mut stdout, data, width, height, display_width)?;
+
     stdout.flush()?;
 
     Ok(())
@@ -35,10 +88,14 @@ fn write_rgba(
     height: usize,
     display_width: u16,
 ) -> Result<()> {
-    let encoded = STANDARD.encode(data);
-    let mut chunks = encoded.as_bytes().chunks(MAX_PAYLOAD_SIZE).peekable();
-    let mut first = true;
+    // compress the image because omg it's slow to render
+    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
+    encoder.write_all(data)?;
 
+    let encoded = STANDARD.encode(encoder.finish()?);
+    let mut chunks = encoded.as_bytes().chunks(MAX_PAYLOAD_SIZE).peekable();
+
+    let mut first = true;
     while let Some(chunk) = chunks.next() {
         output.write_all(APC_START)?;
 
@@ -49,10 +106,13 @@ fn write_rgba(
             // s=width: image width
             // v=height: image height
             // c=display_width: width in terminal columns
+            // i/p: replace the same image placement every frame
+            // o=z: image data is compressed with zlib
+            // C=1: don't move the cursor
             // q=2: quiet errors
             write!(
                 output,
-                "a=T,f=32,s={width},v={height},c={display_width},q=2,"
+                "a=T,f=32,s={width},v={height},c={display_width},i={IMAGE_ID},p={PLACEMENT_ID},o=z,C=1,q=2,"
             )?;
             first = false;
         }

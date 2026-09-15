@@ -10,6 +10,11 @@
  * - Dave Eddy <ysap@daveeddy.com>
  */
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
+use std::time::{Duration, Instant};
+
 use anyhow::{Context, Result};
 
 mod args;
@@ -23,7 +28,10 @@ const WIDTH: usize = 480;
 const HEIGHT: usize = 270;
 
 fn main() -> Result<()> {
+    // parse args
     let args = args::parse();
+
+    // get terminal width (default to full size)
     let display_width = match args.width {
         Some(width) => width,
         None => {
@@ -32,60 +40,64 @@ fn main() -> Result<()> {
                 .0
         }
     };
+
+    // parse the level
     let level = level::LevelDefinition::parse(LEVEL1)
         .context("could not parse level1")?;
 
-    //println!("loaded level:\n{:#?}", level);
+    // wire up ctrl-c: this will probably change once we parse input from the
+    // user and accept Q or ESC.
+    let shutdown = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(
+        signal_hook::consts::SIGINT,
+        Arc::clone(&shutdown),
+    )
+    .context("could not install SIGINT handler")?;
 
-    /*
-    let image =
-        image::load_from_memory(IMAGE).expect("invalid image").into_rgba8();
-    */
+    // hold this handle so it'll go out of scope and de-init when done
+    let _term_handle = kitty_graphics::Terminal::init()?;
 
-    // just render the level, no loop yet
-    let frame = render::level(&level).context("could not render level1")?;
-    kitty_graphics::display_rgba(frame.as_raw(), WIDTH, HEIGHT, display_width)?;
-    println!();
-
-    /*
-
+    // target FPS
     let target_fps = 60.0;
+    let frame_duration = Duration::from_secs_f32(1.0 / target_fps);
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
-
-    let mut last_time = Instant::now();
-    let frame_duration = Duration::from_secs_f32(1.0 / target_fps);
+    let mut fps = 0.0;
 
     // game loop
-    loop {
+    let mut last_time = Instant::now();
+    while !shutdown.load(Ordering::Relaxed) {
         let now = Instant::now();
         let _delta = now.duration_since(last_time);
         last_time = now;
 
-        // display the image
-        kitty_graphics::display_rgba(&image, 480, 270)?;
-        println!("\n");
+        // render the frame
+        let frame = render::level(&level).context("could not render level1")?;
 
-        // calculate FPS
+        // display the frame
+        kitty_graphics::display_rgba(
+            frame.as_raw(),
+            WIDTH,
+            HEIGHT,
+            display_width,
+        )?;
+
+        // display FPS
         fps_frame_count += 1;
         if fps_timer.elapsed() >= Duration::from_secs(1) {
-            let fps =
-                fps_frame_count as f64 / fps_timer.elapsed().as_secs_f64();
+            // calculate the FPS every second
+            fps = fps_frame_count as f64 / fps_timer.elapsed().as_secs_f64();
             fps_frame_count = 0;
             fps_timer = Instant::now();
-            println!("fps = {:.1}", fps);
         }
+        println!("fps = {:.1}", fps);
 
-        // sleep if we finished faster than our target FPS
+        // naive: sleep to ensure the target fps
         let elapsed = now.elapsed();
         if elapsed < frame_duration {
             thread::sleep(frame_duration - elapsed);
         }
-
-        // XXX: don't flood the screen lol
-        thread::sleep(Duration::from_secs(1));
     }
-    */
 
     Ok(())
 }
