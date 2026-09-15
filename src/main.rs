@@ -29,8 +29,12 @@ use terminal::Terminal;
 
 const LEVEL1: &str = include_str!("../levels/level1.txt");
 
+// internal width and height of the game viewport (rendered internall and then
+// optionally stretched)
 const WIDTH: usize = 360;
 const HEIGHT: usize = 270;
+
+// number of pixels below the floor of the level where a death is considered
 const DEATH_PLANE: f32 = 70.0;
 
 fn main() -> Result<()> {
@@ -80,7 +84,7 @@ fn main() -> Result<()> {
             &input,
             delta.as_secs_f32(),
             &level.blocks,
-            level_width - level::TILE_SIZE as f32,
+            level_width - player::HITBOX_WIDTH,
         );
         input.jump_pressed = false;
 

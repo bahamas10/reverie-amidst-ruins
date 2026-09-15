@@ -11,7 +11,9 @@ const AIR_ACCELERATION: f32 = 650.0;
 const GRAVITY: f32 = 800.0;
 const JUMP_SPEED: f32 = 300.0;
 const MAX_FALL_SPEED: f32 = 450.0;
-const SIZE: f32 = TILE_SIZE as f32;
+const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
+pub const HITBOX_WIDTH: f32 = 12.0;
+pub const HITBOX_HEIGHT: f32 = 15.0;
 
 pub struct Player {
     pub x: f32,
@@ -38,9 +40,9 @@ impl Player {
 
     pub fn overlaps(&self, x: f32, y: f32, width: f32, height: f32) -> bool {
         self.x < x + width
-            && self.x + SIZE > x
+            && self.x + HITBOX_WIDTH > x
             && self.y < y + height
-            && self.y + SIZE > y
+            && self.y + HITBOX_HEIGHT > y
     }
 
     pub fn update(
@@ -79,7 +81,7 @@ impl Player {
         self.x += amount;
 
         if hits_solid(self.x, self.y, blocks) {
-            self.x = resolve_collision(self.x, amount);
+            self.x = resolve_collision(self.x, amount, HITBOX_WIDTH);
             self.vx = 0.0;
         }
 
@@ -94,7 +96,7 @@ impl Player {
         self.y += amount;
 
         if hits_solid(self.x, self.y, blocks) {
-            self.y = resolve_collision(self.y, amount);
+            self.y = resolve_collision(self.y, amount, HITBOX_HEIGHT);
             self.grounded = amount > 0.0;
             self.vy = 0.0;
         }
@@ -111,11 +113,15 @@ fn approach(current: f32, target: f32, amount: f32) -> f32 {
 }
 
 // reset the player based on what it collided with
-fn resolve_collision(position: f32, amount: f32) -> f32 {
+fn resolve_collision(position: f32, amount: f32, player_size: f32) -> f32 {
     if amount > 0.0 {
-        ((position + SIZE) / SIZE).floor() * SIZE - SIZE - 0.01
+        ((position + player_size) / TILE_SIZE_F32).floor() * TILE_SIZE_F32
+            - player_size
+            - 0.01
     } else if amount < 0.0 {
-        (position / SIZE).floor() * SIZE + SIZE + 0.01
+        (position / TILE_SIZE_F32).floor() * TILE_SIZE_F32
+            + TILE_SIZE_F32
+            + 0.01
     } else {
         position
     }
@@ -124,10 +130,10 @@ fn resolve_collision(position: f32, amount: f32) -> f32 {
 // check if the player hits a solid (should we store this?)
 fn hits_solid(x: f32, y: f32, blocks: &[Vec<bool>]) -> bool {
     // find all blocks *around* the player
-    let left = (x / SIZE).floor() as i32;
-    let right = ((x + SIZE - 0.01) / SIZE).floor() as i32;
-    let top = (y / SIZE).floor() as i32;
-    let bottom = ((y + SIZE - 0.01) / SIZE).floor() as i32;
+    let left = (x / TILE_SIZE_F32).floor() as i32;
+    let right = ((x + HITBOX_WIDTH - 0.01) / TILE_SIZE_F32).floor() as i32;
+    let top = (y / TILE_SIZE_F32).floor() as i32;
+    let bottom = ((y + HITBOX_HEIGHT - 0.01) / TILE_SIZE_F32).floor() as i32;
 
     // check all blocks *around* the player
     (top.max(0)..=bottom).any(|y| {
