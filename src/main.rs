@@ -117,7 +117,7 @@ fn main() -> Result<()> {
             fps_frame_count = 0;
             fps_timer = Instant::now();
         }
-        println!("fps = {:.1}", fps);
+        println!("fps = {:.1}\r", fps);
 
         // naive: sleep to ensure the target fps
         let elapsed = now.elapsed();
