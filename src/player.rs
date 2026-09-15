@@ -6,6 +6,8 @@ use crate::input::Input;
 use crate::level::TILE_SIZE;
 
 const SPEED: f32 = 120.0;
+const GROUND_ACCELERATION: f32 = 1200.0;
+const AIR_ACCELERATION: f32 = 650.0;
 const GRAVITY: f32 = 800.0;
 const JUMP_SPEED: f32 = 300.0;
 const MAX_FALL_SPEED: f32 = 450.0;
@@ -38,7 +40,11 @@ impl Player {
         };
 
         // handle horizontal move first
-        self.move_x(direction as f32 * SPEED * delta, blocks, max_x);
+        let target_speed = direction as f32 * SPEED;
+        let acceleration =
+            if self.grounded { GROUND_ACCELERATION } else { AIR_ACCELERATION };
+        self.vx = approach(self.vx, target_speed, acceleration * delta);
+        self.move_x(self.vx * delta, blocks, max_x);
 
         // handle jump
         if input.jump_pressed && self.grounded {
@@ -57,9 +63,14 @@ impl Player {
 
         if hits_solid(self.x, self.y, blocks) {
             self.x = resolve_collision(self.x, amount);
+            self.vx = 0.0;
         }
 
-        self.x = self.x.clamp(0.0, max_x);
+        let clamped_x = self.x.clamp(0.0, max_x);
+        if clamped_x != self.x {
+            self.x = clamped_x;
+            self.vx = 0.0;
+        }
     }
 
     fn move_y(&mut self, amount: f32, blocks: &[Vec<bool>]) {
@@ -73,8 +84,17 @@ impl Player {
     }
 }
 
+// get to "target" from "current" changing by "amount"
+fn approach(current: f32, target: f32, amount: f32) -> f32 {
+    if current < target {
+        (current + amount).min(target)
+    } else {
+        (current - amount).max(target)
+    }
+}
+
+// reset the player based on what it collided with
 fn resolve_collision(position: f32, amount: f32) -> f32 {
-    // reset the player (quarter steps?)
     if amount > 0.0 {
         ((position + SIZE) / SIZE).floor() * SIZE - SIZE - 0.01
     } else if amount < 0.0 {
@@ -84,6 +104,7 @@ fn resolve_collision(position: f32, amount: f32) -> f32 {
     }
 }
 
+// check if the player hits a solid (should we store this?)
 fn hits_solid(x: f32, y: f32, blocks: &[Vec<bool>]) -> bool {
     // find all blocks *around* the player
     let left = (x / SIZE).floor() as i32;
