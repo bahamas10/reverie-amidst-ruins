@@ -17,6 +17,9 @@ pub const TILE_SIZE: usize = 16;
 // animations
 const COIN_ANIMATION_NUM: f32 = 8.0; // 8 rotations per second
 
+// 0 = stationary, 1 = moved with level
+const BACKGROUND_PARALLAX_NUM: f32 = 0.35;
+
 // locations of the tiles in tileset PNG
 const GROUND: (usize, usize) = (0, 0);
 const GROUND_TOP: (usize, usize) = (16, 0);
@@ -46,11 +49,29 @@ pub fn level(
     camera: &Camera,
     elapsed: f32,
 ) -> Result<RgbaImage> {
-    // the background *is* our frame - eventually this should probably be a
-    // black image that we blit over
-    let mut frame = image::load_from_memory(BACKGROUND)
+    // load the background and get it ready to parallax
+    let background = image::load_from_memory(BACKGROUND)
         .context("could not decode snow.png")?
         .into_rgba8();
+    let background_width = background.width();
+    let background_height = background.height();
+
+    let background_x = (camera.x * BACKGROUND_PARALLAX_NUM)
+        .round()
+        .rem_euclid(background_width as f32) as u32;
+    let background_y = (camera.y * BACKGROUND_PARALLAX_NUM)
+        .round()
+        .rem_euclid(background_height as f32) as u32;
+
+    // construct the base frame using the background, parallaxed - this will
+    // wrap the image in both x and y directions which is pretty fancy
+    let mut frame =
+        RgbaImage::from_fn(background_width, background_height, |x, y| {
+            *background.get_pixel(
+                (x + background_x) % background_width,
+                (y + background_y) % background_height,
+            )
+        });
 
     let tileset = image::load_from_memory(TILESET)
         .context("could not decode tileset.png")?
