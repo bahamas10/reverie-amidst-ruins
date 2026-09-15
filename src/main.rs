@@ -29,7 +29,7 @@ use terminal::Terminal;
 
 const LEVEL1: &str = include_str!("../levels/level1.txt");
 
-const WIDTH: usize = 480;
+const WIDTH: usize = 360;
 const HEIGHT: usize = 270;
 const DEATH_PLANE: f32 = 70.0;
 
@@ -123,15 +123,22 @@ fn main() -> Result<()> {
         camera.follow(&player, level_width, WIDTH as f32);
 
         // render the frame
-        let frame =
-            render::level(&level, &player, &camera, &remaining_coins, elapsed)
-                .context("could not render level1")?;
+        let frame = render::level(
+            &level,
+            &player,
+            &camera,
+            &remaining_coins,
+            elapsed,
+            WIDTH as u32,
+            HEIGHT as u32,
+        )
+        .context("could not render level1")?;
 
         // display the frame
         terminal::kitty_graphics::display_rgba(
             frame.as_raw(),
-            WIDTH,
-            HEIGHT,
+            frame.width() as usize,
+            frame.height() as usize,
             display_width,
         )?;
 

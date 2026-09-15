@@ -46,6 +46,8 @@ pub fn level(
     camera: &Camera,
     coins: &[(usize, usize)],
     elapsed: f32,
+    width: u32,
+    height: u32,
 ) -> Result<RgbaImage> {
     // load the background and get it ready to parallax
     let background = image::load_from_memory(BACKGROUND)
@@ -63,13 +65,12 @@ pub fn level(
 
     // construct the base frame using the background, parallaxed - this will
     // wrap the image in both x and y directions which is pretty fancy
-    let mut frame =
-        RgbaImage::from_fn(background_width, background_height, |x, y| {
-            *background.get_pixel(
-                (x + background_x) % background_width,
-                (y + background_y) % background_height,
-            )
-        });
+    let mut frame = RgbaImage::from_fn(width, height, |x, y| {
+        *background.get_pixel(
+            (x + background_x) % background_width,
+            (y + background_y) % background_height,
+        )
+    });
 
     let tileset = image::load_from_memory(TILESET)
         .context("could not decode tileset.png")?
