@@ -21,6 +21,9 @@ mod args;
 mod kitty_graphics;
 mod level;
 mod render;
+mod terminal;
+
+use terminal::Terminal;
 
 const LEVEL1: &str = include_str!("../levels/level1.txt");
 
@@ -55,7 +58,7 @@ fn main() -> Result<()> {
     .context("could not install SIGINT handler")?;
 
     // hold this handle so it'll go out of scope and de-init when done
-    let _term_handle = kitty_graphics::Terminal::init()?;
+    let _term_handle = Terminal::init()?;
 
     // target FPS
     let target_fps = 60.0;
