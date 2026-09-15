@@ -10,4 +10,3 @@ clap = { version = "4.6.6", features = ["derive"] }
 crossterm = "0.29"
 flate2 = "1.1"
 image = "0.25.10"
-signal-hook = "0.3"

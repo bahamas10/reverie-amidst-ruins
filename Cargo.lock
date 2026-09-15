@@ -1109,7 +1109,6 @@ dependencies = [
  "crossterm",
  "flate2",
  "image",
- "signal-hook",
 ]
 
 [[package]]
