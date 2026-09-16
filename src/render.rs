@@ -26,6 +26,7 @@ const GOAL: (usize, usize) = (96, 0);
 
 // images
 const BACKGROUND: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
+const TITLE: &[u8] = include_bytes!("../assets/backgrounds/title.png");
 const TILESET: &[u8] = include_bytes!("../assets/tiles/tileset.png");
 
 // ok, i don't know how i feel about this currently, but this is the exact
@@ -39,10 +40,20 @@ const SOURCE_PALETTE: Palette = [
     [0xf2, 0xff, 0x66],
 ];
 
+pub fn title(frame: &mut RgbaImage) -> Result<()> {
+    let title = image::load_from_memory(TITLE)
+        .context("could not decode title.png")?
+        .into_rgba8();
+
+    imageops::overlay(frame, &title, 0, 0);
+
+    Ok(())
+}
+
 // convert the level to an image
 pub fn level(
     level: &LevelDefinition,
-    player: &Player,
+    player: Option<&Player>,
     camera: &Camera,
     coins: &[(usize, usize)],
     elapsed: f32,
@@ -139,15 +150,17 @@ pub fn level(
     );
 
     // draw player - it's smaller
-    sprite_sized(
-        &mut frame,
-        &tileset,
-        PLAYER,
-        camera.world_to_screen(player.x, player.y),
-        &level.palette,
-        player.facing.facing_left(),
-        (HITBOX_WIDTH as u32, HITBOX_HEIGHT as u32),
-    );
+    if let Some(player) = player {
+        sprite_sized(
+            &mut frame,
+            &tileset,
+            PLAYER,
+            camera.world_to_screen(player.x, player.y),
+            &level.palette,
+            player.facing.facing_left(),
+            (HITBOX_WIDTH as u32, HITBOX_HEIGHT as u32),
+        );
+    }
 
     Ok(frame)
 }

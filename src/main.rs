@@ -21,10 +21,10 @@ mod input;
 mod level;
 mod player;
 mod render;
+mod screen;
 mod terminal;
 
-use camera::Camera;
-use player::Player;
+use screen::{LevelScreen, Screen};
 use terminal::Terminal;
 
 const LEVEL1: &str = include_str!("../levels/level1.txt");
@@ -41,20 +41,14 @@ fn main() -> Result<()> {
     // parse args
     let args = args::parse();
 
-    // parse the level
-    let level = level::LevelDefinition::parse(LEVEL1)
-        .context("could not parse level1")?;
+    // load the first level behind the title screen
+    let level_screen =
+        LevelScreen::load(LEVEL1).context("could not load level1")?;
 
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;
     let mut input = input::Input::default();
-    let mut player = Player::new(
-        (level.spawn.0 * level::TILE_SIZE) as f32,
-        (level.spawn.1 * level::TILE_SIZE) as f32,
-    );
-    let mut camera = Camera::default();
-    let mut remaining_coins = level.coins.clone();
-    let mut coin_count = 0;
+    let mut screen = Screen::Title(level_screen);
 
     // target FPS
     let target_fps = 60.0;
@@ -65,12 +59,10 @@ fn main() -> Result<()> {
 
     // game loop
     let mut last_time = Instant::now();
-    let mut elapsed = 0.0;
     while !input.quit {
         let now = Instant::now();
         let delta = now.duration_since(last_time);
         last_time = now;
-        elapsed += delta.as_secs_f32();
 
         // read all pending terminal input
         let events = term_handle.read_events()?;
@@ -78,55 +70,88 @@ fn main() -> Result<()> {
             input.handle_key(event);
         }
 
-        // update the player
-        let level_width = (level.width * level::TILE_SIZE) as f32;
-        player.update(
-            &input,
-            delta.as_secs_f32(),
-            &level.blocks,
-            level_width - player::HITBOX_WIDTH,
-        );
-        input.jump_pressed = false;
-
-        // death: reset after falling below the level
-        let level_height = (level.height * level::TILE_SIZE) as f32;
-        if player.y > level_height + DEATH_PLANE {
-            // player died! reset the player and the level
-            player.reset();
-            remaining_coins = level.coins.clone();
-            coin_count = 0;
-        } else {
-            // player still alive
-
-            // check if we touched any coins
-            remaining_coins.retain(|&(x, y)| {
-                let collected = player.overlaps(
-                    (x * level::TILE_SIZE) as f32,
-                    (y * level::TILE_SIZE) as f32,
-                    level::TILE_SIZE as f32,
-                    level::TILE_SIZE as f32,
-                );
-                if collected {
-                    coin_count += 1;
-                }
-                !collected
-            });
+        // remove the title and spawn the player into the active level
+        if input.confirm_pressed {
+            screen = match screen {
+                Screen::Title(level_screen) => Screen::Level(level_screen),
+                screen => screen,
+            };
         }
 
-        // update the camera
-        camera.follow(&player, level_width, WIDTH as f32);
+        // update the active screen
+        match &mut screen {
+            Screen::Title(level_screen) => {
+                level_screen.elapsed += delta.as_secs_f32();
+            }
+            Screen::Level(level_screen) => {
+                level_screen.elapsed += delta.as_secs_f32();
+
+                let level = &level_screen.level;
+                let player = &mut level_screen.player;
+
+                let level_width = (level.width * level::TILE_SIZE) as f32;
+                player.update(
+                    &input,
+                    delta.as_secs_f32(),
+                    &level.blocks,
+                    level_width - player::HITBOX_WIDTH,
+                );
+
+                // death: reset after falling below the level
+                let level_height = (level.height * level::TILE_SIZE) as f32;
+                if player.y > level_height + DEATH_PLANE {
+                    player.reset();
+                    level_screen.remaining_coins = level.coins.clone();
+                    level_screen.coin_count = 0;
+                } else {
+                    // check if we touched any coins
+                    level_screen.remaining_coins.retain(|&(x, y)| {
+                        let collected = player.overlaps(
+                            (x * level::TILE_SIZE) as f32,
+                            (y * level::TILE_SIZE) as f32,
+                            level::TILE_SIZE as f32,
+                            level::TILE_SIZE as f32,
+                        );
+                        if collected {
+                            level_screen.coin_count += 1;
+                        }
+                        !collected
+                    });
+                }
+
+                level_screen.camera.follow(player, level_width, WIDTH as f32);
+            }
+        }
+        input.jump_pressed = false;
+        input.confirm_pressed = false;
 
         // render the frame
-        let frame = render::level(
-            &level,
-            &player,
-            &camera,
-            &remaining_coins,
-            elapsed,
-            WIDTH as u32,
-            HEIGHT as u32,
-        )
-        .context("could not render level1")?;
+        let frame = match &mut screen {
+            Screen::Title(level_screen) => {
+                let mut frame = render::level(
+                    &level_screen.level,
+                    None,
+                    &level_screen.camera,
+                    &level_screen.remaining_coins,
+                    level_screen.elapsed,
+                    WIDTH as u32,
+                    HEIGHT as u32,
+                )
+                .context("could not render title level")?;
+                render::title(&mut frame)?;
+                frame
+            }
+            Screen::Level(level_screen) => render::level(
+                &level_screen.level,
+                Some(&level_screen.player),
+                &level_screen.camera,
+                &level_screen.remaining_coins,
+                level_screen.elapsed,
+                WIDTH as u32,
+                HEIGHT as u32,
+            )
+            .context("could not render level")?,
+        };
 
         // display the frame
         let placement = term_handle.image_placement(
@@ -149,7 +174,12 @@ fn main() -> Result<()> {
             fps_frame_count = 0;
             fps_timer = Instant::now();
         }
-        println!("fps = {:.1} | coins = {}    \r", fps, coin_count);
+        if let Screen::Level(level_screen) = &screen {
+            println!(
+                "fps = {:.1} | coins = {}    \r",
+                fps, level_screen.coin_count
+            );
+        }
 
         // naive: sleep to ensure the target fps
         let elapsed = now.elapsed();

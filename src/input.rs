@@ -21,6 +21,9 @@ pub struct Input {
     // is holding / pressed enter
     pub confirm: bool,
 
+    // just pressed enter
+    pub confirm_pressed: bool,
+
     // is holding / pressed quit
     pub quit: bool,
 }
@@ -41,7 +44,12 @@ impl Input {
                 self.jump = is_down;
             }
             KeyCode::Esc | KeyCode::Char('q' | 'Q') => self.quit = is_down,
-            KeyCode::Enter => self.confirm = is_down,
+            KeyCode::Enter => {
+                if is_pressed {
+                    self.confirm_pressed = true;
+                }
+                self.confirm = is_down;
+            }
             _ => {}
         }
     }
