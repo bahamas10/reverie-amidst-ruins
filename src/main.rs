@@ -26,7 +26,10 @@ mod terminal;
 use screen::{LevelScreen, Screen};
 use terminal::Terminal;
 
-const LEVEL1: &str = include_str!("../levels/level1.txt");
+const LEVELS: [&str; 2] = [
+    include_str!("../levels/level1.txt"),
+    include_str!("../levels/level2.txt"),
+];
 
 // internal width and height of the game viewport (rendered internall and then
 // optionally stretched)
@@ -36,13 +39,19 @@ const HEIGHT: usize = 270;
 // number of pixels below the floor of the level where a death is considered
 const DEATH_PLANE: f32 = 70.0;
 
+fn load_level(index: usize) -> Result<LevelScreen> {
+    let source = LEVELS.get(index).context("unknown level")?;
+
+    LevelScreen::load(index, source)
+        .with_context(|| format!("could not load level {}", index + 1))
+}
+
 fn main() -> Result<()> {
     // parse args
     let args = args::parse();
 
     // load the first level behind the title screen
-    let level_screen =
-        LevelScreen::load(LEVEL1).context("could not load level1")?;
+    let level_screen = load_level(0)?;
 
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;
@@ -79,6 +88,7 @@ fn main() -> Result<()> {
         }
 
         // update the active screen
+        let mut next_level = None;
         match &mut screen {
             Screen::Title(level_screen) => {
                 level_screen.elapsed += delta.as_secs_f32();
@@ -117,10 +127,25 @@ fn main() -> Result<()> {
                         }
                         !collected
                     });
+
+                    // touching the goal goes to the next level (if there is
+                    // one)
+                    let goal = player.overlaps(
+                        (level.goal.0 * level::TILE_SIZE) as f32,
+                        (level.goal.1 * level::TILE_SIZE) as f32,
+                        level::TILE_SIZE as f32,
+                        level::TILE_SIZE as f32,
+                    );
+                    if goal && level_screen.index + 1 < LEVELS.len() {
+                        next_level = Some(level_screen.index + 1);
+                    }
                 }
 
                 level_screen.camera.follow(player, level_width, WIDTH as f32);
             }
+        }
+        if let Some(index) = next_level {
+            screen = Screen::Level(load_level(index)?);
         }
         input.jump_pressed = false;
         input.confirm_pressed = false;

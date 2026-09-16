@@ -15,6 +15,7 @@ pub enum Screen {
 }
 
 pub struct LevelScreen {
+    pub index: usize,
     pub level: LevelDefinition,
     pub player: Player,
     pub camera: Camera,
@@ -24,7 +25,7 @@ pub struct LevelScreen {
 }
 
 impl LevelScreen {
-    pub fn load(source: &str) -> Result<Self> {
+    pub fn load(index: usize, source: &str) -> Result<Self> {
         let level = LevelDefinition::parse(source)?;
         let player = Player::new(
             (level.spawn.0 * TILE_SIZE) as f32,
@@ -33,6 +34,7 @@ impl LevelScreen {
         let remaining_coins = level.coins.clone();
 
         Ok(Self {
+            index,
             level,
             player,
             camera: Camera::default(),
