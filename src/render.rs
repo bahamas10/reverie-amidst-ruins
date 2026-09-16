@@ -12,7 +12,7 @@ use crate::level::{LevelDefinition, Palette, TILE_SIZE};
 use crate::player::{HITBOX_HEIGHT, HITBOX_WIDTH, Player};
 
 // animations
-const COIN_ANIMATION_NUM: f32 = 8.0; // 8 rotations per second
+const COIN_ANIMATION_NUM: f32 = 7.0; // rotations per second
 
 // 0 = stationary, 1 = moved with level
 const BACKGROUND_PARALLAX_NUM: f32 = 0.35;
