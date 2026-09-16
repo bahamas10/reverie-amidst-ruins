@@ -7,5 +7,6 @@ Movement
 - space bar     -> Jump
 
 Utility
+- num 1         -> Toggle post-processing effects
 - num 2         -> Save screenshot to current directory
 

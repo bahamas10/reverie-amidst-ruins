@@ -71,6 +71,7 @@ fn main() -> Result<()> {
 
     // "HUD"
     let mut message = None;
+    let mut effects_enabled = true;
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
     let mut fps = 0.0;
@@ -87,6 +88,16 @@ fn main() -> Result<()> {
         for event in events {
             input.handle_key(event);
         }
+
+        if input.effects_toggle_pressed {
+            effects_enabled = !effects_enabled;
+            let state = if effects_enabled { "on" } else { "off" };
+            message = Some((
+                format!("effects {state}"),
+                Instant::now() + MESSAGE_DURATION,
+            ));
+        }
+        input.effects_toggle_pressed = false;
 
         // remove the title and spawn the player into the active level
         if input.confirm_pressed {
@@ -160,7 +171,7 @@ fn main() -> Result<()> {
         input.confirm_pressed = false;
 
         // render the frame
-        let frame = match &mut screen {
+        let mut frame = match &mut screen {
             Screen::Title(level_screen) => {
                 let mut frame = render::level(
                     &level_screen.level,
@@ -186,6 +197,11 @@ fn main() -> Result<()> {
             )
             .context("could not render level")?,
         };
+
+        // apply full-screen effects to the final composed image
+        if effects_enabled {
+            render::post_process(&mut frame);
+        }
 
         // save a screenshot (unscaled, directly write frame)
         if input.screenshot_pressed {

@@ -27,6 +27,9 @@ pub struct Input {
     // just pressed screenshot
     pub screenshot_pressed: bool,
 
+    // just pressed effects toggle
+    pub effects_toggle_pressed: bool,
+
     // is holding / pressed quit
     pub quit: bool,
 }
@@ -55,6 +58,9 @@ impl Input {
             }
             KeyCode::Char('2') if is_pressed => {
                 self.screenshot_pressed = true;
+            }
+            KeyCode::Char('1') if is_pressed => {
+                self.effects_toggle_pressed = true;
             }
             _ => {}
         }

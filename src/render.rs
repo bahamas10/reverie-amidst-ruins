@@ -17,6 +17,11 @@ const COIN_ANIMATION_NUM: f32 = 7.0; // rotations per second
 // 0 = stationary, 1 = moved with level
 const BACKGROUND_PARALLAX_NUM: f32 = 0.35;
 
+// full-screen post-processing
+const VIGNETTE_START: f32 = 0.20;
+const VIGNETTE_STRENGTH: f32 = 0.45;
+const SCANLINE_BRIGHTNESS: f32 = 0.85;
+
 // locations of the tiles in tileset PNG
 const GROUND: (usize, usize) = (0, 0);
 const GROUND_TOP: (usize, usize) = (16, 0);
@@ -50,6 +55,40 @@ pub fn title(frame: &mut RgbaImage) -> Result<()> {
     imageops::overlay(frame, &title, 0, 0);
 
     Ok(())
+}
+
+/**
+ * This is so cool - because our frames are just images we can apply CPU
+ * "shaders" to them... basically just filters and image effects.
+ *
+ * Keep this one simple - add a vignette and some super generic scanlines.
+ */
+pub fn post_process(frame: &mut RgbaImage) {
+    let width = frame.width().saturating_sub(1).max(1) as f32;
+    let height = frame.height().saturating_sub(1).max(1) as f32;
+
+    for (x, y, pixel) in frame.enumerate_pixels_mut() {
+        // normalize values to be -1 <= value <= 1
+        let x = x as f32 / width * 2.0 - 1.0;
+        let y_normalized = y as f32 / height * 2.0 - 1.0;
+
+        // vignette
+        let distance =
+            ((x * x + y_normalized * y_normalized) / 2.0).clamp(0.0, 1.0);
+        let vignette = ((distance - VIGNETTE_START) / (1.0 - VIGNETTE_START))
+            .clamp(0.0, 1.0);
+        let mut brightness = 1.0 - vignette * VIGNETTE_STRENGTH;
+
+        // scanlines
+        if y % 2 == 1 {
+            brightness *= SCANLINE_BRIGHTNESS;
+        }
+
+        // apply the change to the pixel
+        for channel in &mut pixel.0[..3] {
+            *channel = (*channel as f32 * brightness).round() as u8;
+        }
+    }
 }
 
 // convert the level to an image
