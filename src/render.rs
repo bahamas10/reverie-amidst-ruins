@@ -4,7 +4,7 @@
  * case that will be the kitty terminal protocol.
  */
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use image::{RgbaImage, imageops};
 
 use crate::camera::Camera;
@@ -25,7 +25,9 @@ const PLAYER: (usize, usize) = (80, 0);
 const GOAL: (usize, usize) = (96, 0);
 
 // images
-const BACKGROUND: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
+const BACKGROUND_SNOW: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
+const BACKGROUND_NEBULA: &[u8] =
+    include_bytes!("../assets/backgrounds/nebula.png");
 const TITLE: &[u8] = include_bytes!("../assets/backgrounds/title.png");
 const TILESET: &[u8] = include_bytes!("../assets/tiles/tileset.png");
 
@@ -61,8 +63,15 @@ pub fn level(
     height: u32,
 ) -> Result<RgbaImage> {
     // load the background and get it ready to parallax
-    let background = image::load_from_memory(BACKGROUND)
-        .context("could not decode snow.png")?
+    let background_data = match level.background.as_str() {
+        "snow" => BACKGROUND_SNOW,
+        "nebula" => BACKGROUND_NEBULA,
+        name => bail!("unknown background: {name}"),
+    };
+    let background = image::load_from_memory(background_data)
+        .with_context(|| {
+            format!("could not decode background: {}", level.background)
+        })?
         .into_rgba8();
     let background_width = background.width();
     let background_height = background.height();

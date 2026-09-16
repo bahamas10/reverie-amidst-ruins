@@ -1,6 +1,6 @@
 name: TODO
 music: TODO
-background: snow
+background: nebula
 palette: #210914, #621437, #D72F5E, #FFB04A
 
 ..........................................................................................
