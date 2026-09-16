@@ -24,6 +24,9 @@ pub struct Input {
     // just pressed enter
     pub confirm_pressed: bool,
 
+    // just pressed screenshot
+    pub screenshot_pressed: bool,
+
     // is holding / pressed quit
     pub quit: bool,
 }
@@ -49,6 +52,9 @@ impl Input {
                     self.confirm_pressed = true;
                 }
                 self.confirm = is_down;
+            }
+            KeyCode::Char('2') if is_pressed => {
+                self.screenshot_pressed = true;
             }
             _ => {}
         }

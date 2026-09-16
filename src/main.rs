@@ -10,7 +10,7 @@
  * - Dave Eddy <ysap@daveeddy.com>
  */
 
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 
@@ -39,6 +39,9 @@ const HEIGHT: usize = 270;
 // number of pixels below the floor of the level where a death is considered
 const DEATH_PLANE: f32 = 70.0;
 
+// how long a message should stay on screen
+const MESSAGE_DURATION: Duration = Duration::from_secs(3);
+
 fn load_level(index: usize) -> Result<LevelScreen> {
     let source = LEVELS.get(index).context("unknown level")?;
 
@@ -49,6 +52,9 @@ fn load_level(index: usize) -> Result<LevelScreen> {
 fn main() -> Result<()> {
     // parse args
     let args = args::parse();
+
+    // print the start message
+    print!(include_str!("../assets/start.txt"));
 
     // load the first level behind the title screen
     let level_screen = load_level(0)?;
@@ -62,6 +68,9 @@ fn main() -> Result<()> {
     let target_fps = 60.0;
     let frame_duration = Duration::from_secs_f32(1.0 / target_fps);
     let mut next_frame = Instant::now();
+
+    // "HUD"
+    let mut message = None;
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
     let mut fps = 0.0;
@@ -178,6 +187,27 @@ fn main() -> Result<()> {
             .context("could not render level")?,
         };
 
+        // save a screenshot (unscaled, directly write frame)
+        if input.screenshot_pressed {
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .context("system clock is bad")?
+                .as_millis();
+            let filename = format!("ram-screenshot-{timestamp}.png");
+
+            // we could maybe check if the file exists before saving it? i think
+            // it's fine to not bother since the name is unique enough?
+            frame
+                .save(&filename)
+                .with_context(|| format!("could not save {filename}"))?;
+
+            message = Some((
+                format!("saved {filename}"),
+                Instant::now() + MESSAGE_DURATION,
+            ));
+        }
+        input.screenshot_pressed = false;
+
         // display the frame
         let placement = term_handle.image_placement(
             frame.width() as usize,
@@ -191,7 +221,9 @@ fn main() -> Result<()> {
             placement,
         )?;
 
-        // display FPS
+        // format "HUD" - by which i mean the line of text we `print!` lmao
+
+        // fps
         fps_frame_count += 1;
         if fps_timer.elapsed() >= Duration::from_secs(1) {
             // calculate the FPS every second
@@ -199,11 +231,25 @@ fn main() -> Result<()> {
             fps_frame_count = 0;
             fps_timer = Instant::now();
         }
-        if let Screen::Level(level_screen) = &screen {
-            print!(
-                "fps = {:.1} | coins = {}    \r",
-                fps, level_screen.coin_count
-            );
+
+        // optional message
+        if message.as_ref().is_some_and(|(_, until)| Instant::now() >= *until) {
+            message = None;
+        }
+        let msg = message.as_ref().map(|(text, _)| text.as_str()).unwrap_or("");
+
+        match &screen {
+            Screen::Title(_) => {
+                if !msg.is_empty() {
+                    print!("{}\x1b[K\r", msg);
+                }
+            }
+            Screen::Level(level_screen) => {
+                print!(
+                    "fps = {:.1} | coins = {} | {}\x1b[K\r",
+                    fps, level_screen.coin_count, msg
+                );
+            }
         }
 
         // sleep until the next fixed deadline - keeping an absolute deadline
