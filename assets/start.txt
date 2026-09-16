@@ -1,8 +1,11 @@
-== Controls ==
+====================
+==    Controls    ==
+====================
 
-= Movement
-WASD / Arrow Keys - Move Player
-Space Bar         - Jump
+Movement
+- wasd / arrows -> Move player
+- space bar     -> Jump
 
-= Utility
-Num 2 - Save Screenshot to current directory
+Utility
+- num 2         -> Save screenshot to current directory
+
