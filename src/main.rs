@@ -10,7 +10,6 @@
  * - Dave Eddy <ysap@daveeddy.com>
  */
 
-use std::thread;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -53,6 +52,7 @@ fn main() -> Result<()> {
     // target FPS
     let target_fps = 60.0;
     let frame_duration = Duration::from_secs_f32(1.0 / target_fps);
+    let mut next_frame = Instant::now();
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
     let mut fps = 0.0;
@@ -175,16 +175,20 @@ fn main() -> Result<()> {
             fps_timer = Instant::now();
         }
         if let Screen::Level(level_screen) = &screen {
-            println!(
+            print!(
                 "fps = {:.1} | coins = {}    \r",
                 fps, level_screen.coin_count
             );
         }
 
-        // naive: sleep to ensure the target fps
-        let elapsed = now.elapsed();
-        if elapsed < frame_duration {
-            thread::sleep(frame_duration - elapsed);
+        // sleep until the next fixed deadline - keeping an absolute deadline
+        // prevents small sleeps from going oven the target
+        next_frame += frame_duration;
+        if Instant::now() < next_frame {
+            spin_sleep::sleep_until(next_frame);
+        } else {
+            // rendering took longer than a frame uh oh - should we warn?
+            next_frame = Instant::now();
         }
     }
 
