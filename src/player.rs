@@ -10,6 +10,7 @@ const GROUND_ACCELERATION: f32 = 1200.0;
 const AIR_ACCELERATION: f32 = 650.0;
 const GRAVITY: f32 = 800.0;
 const JUMP_SPEED: f32 = 300.0;
+const JUMP_RELEASE_SPEED: f32 = 100.0;
 const MAX_FALL_SPEED: f32 = 450.0;
 const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
 pub const HITBOX_WIDTH: f32 = 12.0;
@@ -100,6 +101,11 @@ impl Player {
         if input.jump_pressed && self.grounded {
             self.vy = -JUMP_SPEED;
             self.grounded = false;
+        }
+
+        // releasing jump early cuts the remaining upward speed
+        if !input.jump && self.vy < -JUMP_RELEASE_SPEED {
+            self.vy = -JUMP_RELEASE_SPEED;
         }
 
         // handle vertical movement
