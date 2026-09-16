@@ -156,7 +156,7 @@ pub fn level(
             &tileset,
             PLAYER,
             camera.world_to_screen(player.x, player.y),
-            &level.palette,
+            &SOURCE_PALETTE,
             player.facing.facing_left(),
             (HITBOX_WIDTH as u32, HITBOX_HEIGHT as u32),
         );
