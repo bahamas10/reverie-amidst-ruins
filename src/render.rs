@@ -30,6 +30,7 @@ const PLAYER: (usize, usize) = (80, 0);
 const GOAL: (usize, usize) = (96, 0);
 
 // images
+const BACKGROUND_STORM: &[u8] = include_bytes!("../assets/backgrounds/storm.png");
 const BACKGROUND_SNOW: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
 const BACKGROUND_NEBULA: &[u8] =
     include_bytes!("../assets/backgrounds/nebula.png");
@@ -105,6 +106,7 @@ pub fn level(
     let background_data = match level.background.as_str() {
         "snow" => BACKGROUND_SNOW,
         "nebula" => BACKGROUND_NEBULA,
+        "storm" => BACKGROUND_STORM,
         name => bail!("unknown background: {name}"),
     };
     let background = image::load_from_memory(background_data)

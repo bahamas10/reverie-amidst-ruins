@@ -26,9 +26,10 @@ mod terminal;
 use screen::{LevelScreen, Screen};
 use terminal::Terminal;
 
-const LEVELS: [&str; 2] = [
+const LEVELS: &[&str] = &[
     include_str!("../levels/level1.txt"),
     include_str!("../levels/level2.txt"),
+    include_str!("../levels/level3.txt"),
 ];
 
 // internal width and height of the game viewport (rendered internall and then
@@ -57,7 +58,7 @@ fn main() -> Result<()> {
     print!(include_str!("../assets/start.txt"));
 
     // load the first level behind the title screen
-    let level_screen = load_level(0)?;
+    let level_screen = load_level(2)?;
 
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;
