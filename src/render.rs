@@ -9,7 +9,7 @@ use image::{RgbaImage, imageops};
 
 use crate::camera::Camera;
 use crate::level::{LevelDefinition, Palette, TILE_SIZE};
-use crate::player::Player;
+use crate::player::{HITBOX_HEIGHT, HITBOX_WIDTH, Player};
 
 // animations
 const COIN_ANIMATION_NUM: f32 = 8.0; // 8 rotations per second
@@ -103,6 +103,7 @@ pub fn level(
                     (y * TILE_SIZE) as f32,
                 ),
                 &level.palette,
+                false,
             );
         }
     }
@@ -120,10 +121,11 @@ pub fn level(
                 (y * TILE_SIZE) as f32,
             ),
             &level.palette,
+            false,
         );
     }
 
-    // draw player and goal
+    // draw goal
     sprite(
         &mut frame,
         &tileset,
@@ -133,13 +135,18 @@ pub fn level(
             (level.goal.1 * TILE_SIZE) as f32,
         ),
         &level.palette,
+        false,
     );
-    sprite(
+
+    // draw player - it's smaller
+    sprite_sized(
         &mut frame,
         &tileset,
         PLAYER,
         camera.world_to_screen(player.x, player.y),
         &level.palette,
+        player.facing.facing_left(),
+        (HITBOX_WIDTH as u32, HITBOX_HEIGHT as u32),
     );
 
     Ok(frame)
@@ -154,14 +161,35 @@ fn sprite(
     source: (usize, usize),
     destination: (i32, i32),
     palette: &Palette,
+    flip_x: bool,
+) {
+    sprite_sized(
+        frame,
+        tileset,
+        source,
+        destination,
+        palette,
+        flip_x,
+        (TILE_SIZE as u32, TILE_SIZE as u32),
+    )
+}
+
+fn sprite_sized(
+    frame: &mut RgbaImage,
+    tileset: &RgbaImage,
+    source: (usize, usize),
+    destination: (i32, i32),
+    palette: &Palette,
+    flip_x: bool,
+    size: (u32, u32),
 ) {
     // get the tile from the tileset
     let mut tile = imageops::crop_imm(
         tileset,
         source.0 as u32,
         source.1 as u32,
-        TILE_SIZE as u32,
-        TILE_SIZE as u32,
+        size.0,
+        size.1,
     )
     .to_image();
 
@@ -177,6 +205,10 @@ fn sprite(
             Some(idx) => pixel.0[..3].copy_from_slice(&palette[idx]),
             None => pixel.0 = [0, 0, 0, 0],
         };
+    }
+
+    if flip_x {
+        imageops::flip_horizontal_in_place(&mut tile);
     }
 
     imageops::overlay(frame, &tile, destination.0.into(), destination.1.into());

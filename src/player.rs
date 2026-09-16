@@ -15,19 +15,44 @@ const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
 pub const HITBOX_WIDTH: f32 = 12.0;
 pub const HITBOX_HEIGHT: f32 = 15.0;
 
+pub enum PlayerFacing {
+    Left,
+    Right,
+}
+
+impl PlayerFacing {
+    pub fn facing_left(&self) -> bool {
+        matches!(self, Self::Left)
+    }
+
+    pub fn _facing_right(&self) -> bool {
+        matches!(self, Self::Right)
+    }
+}
+
 pub struct Player {
     pub x: f32,
     pub y: f32,
     pub vy: f32,
     pub vx: f32,
     pub grounded: bool,
+    pub facing: PlayerFacing,
     pub spawn_x: f32,
     pub spawn_y: f32,
 }
 
 impl Player {
     pub fn new(x: f32, y: f32) -> Self {
-        Self { x, y, vy: 0.0, vx: 0.0, grounded: false, spawn_x: x, spawn_y: y }
+        Self {
+            x,
+            y,
+            vy: 0.0,
+            vx: 0.0,
+            grounded: false,
+            facing: PlayerFacing::Right,
+            spawn_x: x,
+            spawn_y: y,
+        }
     }
 
     pub fn reset(&mut self) {
@@ -53,8 +78,14 @@ impl Player {
         max_x: f32,
     ) {
         let direction = match (input.left, input.right) {
-            (true, false) => -1,
-            (false, true) => 1,
+            (true, false) => {
+                self.facing = PlayerFacing::Left;
+                -1
+            }
+            (false, true) => {
+                self.facing = PlayerFacing::Right;
+                1
+            }
             _ => 0,
         };
 
