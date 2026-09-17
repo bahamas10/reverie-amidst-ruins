@@ -30,7 +30,8 @@ const PLAYER: (usize, usize) = (80, 0);
 const GOAL: (usize, usize) = (96, 0);
 
 // images
-const BACKGROUND_STORM: &[u8] = include_bytes!("../assets/backgrounds/storm.png");
+const BACKGROUND_STORM: &[u8] =
+    include_bytes!("../assets/backgrounds/storm.png");
 const BACKGROUND_SNOW: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
 const BACKGROUND_NEBULA: &[u8] =
     include_bytes!("../assets/backgrounds/nebula.png");

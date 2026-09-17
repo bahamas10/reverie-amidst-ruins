@@ -46,8 +46,21 @@ const MESSAGE_DURATION: Duration = Duration::from_secs(3);
 fn load_level(index: usize) -> Result<LevelScreen> {
     let source = LEVELS.get(index).context("unknown level")?;
 
-    LevelScreen::load(index, source)
-        .with_context(|| format!("could not load level {}", index + 1))
+    let mut level_screen = LevelScreen::load(index, source)
+        .with_context(|| format!("could not load level {}", index + 1))?;
+
+    // camera starts at spawn (then follows player)
+    let level_width = (level_screen.level.width * level::TILE_SIZE) as f32;
+    let level_height = (level_screen.level.height * level::TILE_SIZE) as f32;
+    level_screen.camera.snap_to(
+        &level_screen.player,
+        level_width,
+        level_height,
+        WIDTH as f32,
+        HEIGHT as f32,
+    );
+
+    Ok(level_screen)
 }
 
 fn main() -> Result<()> {
@@ -58,7 +71,7 @@ fn main() -> Result<()> {
     print!(include_str!("../assets/start.txt"));
 
     // load the first level behind the title screen
-    let level_screen = load_level(2)?;
+    let level_screen = load_level(0)?;
 
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;
@@ -162,7 +175,14 @@ fn main() -> Result<()> {
                     }
                 }
 
-                level_screen.camera.follow(player, level_width, WIDTH as f32);
+                level_screen.camera.follow(
+                    player,
+                    level_width,
+                    level_height,
+                    WIDTH as f32,
+                    HEIGHT as f32,
+                    delta.as_secs_f32(),
+                );
             }
         }
         if let Some(index) = next_level {
