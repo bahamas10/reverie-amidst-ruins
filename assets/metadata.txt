@@ -1,0 +1,48 @@
+
+
+             $(c6)Reverie Amidst Ruins$(reset)
+
+         $(dim)a game by @yousuckatprogramming$(reset)
+
+$(dim)
+========================================================
+==    $(reset)$(c6)Controls                                       $(reset)$(dim) ==
+========================================================$(reset)
+
+Movement
+- $(c6)wasd / arrows$(reset) -> Move player
+- $(c6)space bar    $(reset) -> Jump
+
+Utility
+- $(c6)num 1        $(reset) -> Toggle post-processing effects
+- $(c6)num 2        $(reset) -> Save screenshot to current directory
+
+$(dim)
+========================================================
+==    $(reset)$(c6)Credits                                        $(reset)$(dim) ==
+========================================================$(reset)
+
+All code, music, assets, etc. done by $(c2)Dave Eddy$(reset).
+
+Software Used
+
+- $(bold)The Game Itself$(reset)
+ - Language: Rust
+ - Graphics: Kitty Graphics Protocol
+ - Audio Engine: rodio Crate
+
+- $(bold)Assets$(reset)
+ - Backgrounds: Generated via
+   $(c6)https://deep-fold.itch.io/space-background-generator$(reset)
+ - SFX: Generated via
+   $(c6)https://raylibtech.itch.io/rfxgen$(reset)
+
+- $(bold)Music$(reset)
+ - All songs written by $(c2)Dave Eddy$(reset) in Logic Pro
+
+Like the music? Listen to the full album in your terminal:
+
+    $(bold)$(c5)curl nightfall.ysap.sh | bash$(reset)
+
+- $(bold)My YouTube Channel$(reset)
+  $(c6)https://www.youtube.com/@yousuckatprogramming$(reset)
