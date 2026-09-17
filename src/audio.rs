@@ -13,9 +13,18 @@ const ECHOES: &[u8] = include_bytes!("../assets/songs/echoes-of-solace.ogg");
 const COLORS: &[u8] = include_bytes!("../assets/songs/colors.ogg");
 const FINAL_STORM: &[u8] =
     include_bytes!("../assets/songs/the-final-storm.ogg");
+const JUMP: &[u8] = include_bytes!("../assets/sfx/jump.wav");
+const COIN: &[u8] = include_bytes!("../assets/sfx/coin.wav");
+const DEAD: &[u8] = include_bytes!("../assets/sfx/dead.wav");
+
+pub enum SoundEffect {
+    Jump,
+    Coin,
+    Dead,
+}
 
 pub struct Audio {
-    _sink: MixerDeviceSink,
+    sink: MixerDeviceSink,
     music: Player,
 }
 
@@ -28,13 +37,13 @@ impl Audio {
         let music = Player::connect_new(sink.mixer());
         music.set_volume(1.0);
 
-        let audio = Self { _sink: sink, music };
-        audio.set_music(initial_music)?;
+        let audio = Self { sink, music };
+        audio.play_music(initial_music)?;
 
         Ok(audio)
     }
 
-    pub fn set_music(&self, name: &str) -> Result<()> {
+    pub fn play_music(&self, name: &str) -> Result<()> {
         let bytes = match name {
             "reverie-amidst-ruins" => REVERIE,
             "echoes-of-solace" => ECHOES,
@@ -49,6 +58,20 @@ impl Audio {
         self.music.clear();
         self.music.append(source);
         self.music.play();
+
+        Ok(())
+    }
+
+    pub fn play_effect(&self, effect: SoundEffect) -> Result<()> {
+        let bytes = match effect {
+            SoundEffect::Jump => JUMP,
+            SoundEffect::Coin => COIN,
+            SoundEffect::Dead => DEAD,
+        };
+
+        let sound = Decoder::try_from(Cursor::new(bytes))
+            .context("could not play sound effect")?;
+        self.sink.mixer().add(sound);
 
         Ok(())
     }

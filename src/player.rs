@@ -16,6 +16,10 @@ const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
 pub const HITBOX_WIDTH: f32 = 12.0;
 pub const HITBOX_HEIGHT: f32 = 15.0;
 
+pub struct PlayerUpdate {
+    pub jumped: bool,
+}
+
 pub enum PlayerFacing {
     Left,
     Right,
@@ -77,7 +81,7 @@ impl Player {
         delta: f32,
         blocks: &[Vec<bool>],
         max_x: f32,
-    ) {
+    ) -> PlayerUpdate {
         let direction = match (input.left, input.right) {
             (true, false) => {
                 self.facing = PlayerFacing::Left;
@@ -98,7 +102,8 @@ impl Player {
         self.move_x(self.vx * delta, blocks, max_x);
 
         // handle jump
-        if input.jump_pressed && self.grounded {
+        let jumped = input.jump_pressed && self.grounded;
+        if jumped {
             self.vy = -JUMP_SPEED;
             self.grounded = false;
         }
@@ -112,6 +117,8 @@ impl Player {
         self.vy = (self.vy + GRAVITY * delta).min(MAX_FALL_SPEED);
         self.grounded = false;
         self.move_y(self.vy * delta, blocks);
+
+        PlayerUpdate { jumped }
     }
 
     fn move_x(&mut self, amount: f32, blocks: &[Vec<bool>], max_x: f32) {

@@ -24,6 +24,7 @@ mod render;
 mod screen;
 mod terminal;
 
+use audio::SoundEffect;
 use screen::{LevelScreen, Screen};
 use terminal::Terminal;
 
@@ -153,7 +154,7 @@ fn main() -> Result<()> {
             screen = match screen {
                 Screen::Title(level_screen) => {
                     if let Some(audio) = &audio {
-                        audio.set_music(&level_screen.level.music)?;
+                        audio.play_music(&level_screen.level.music)?;
                     }
                     Screen::Level(level_screen)
                 }
@@ -163,6 +164,9 @@ fn main() -> Result<()> {
 
         // update the active screen
         let mut next_level = None;
+        let mut jumped = false;
+        let mut collected_coin = false;
+        let mut died = false;
         match &mut screen {
             Screen::Title(level_screen) => {
                 level_screen.elapsed += delta.as_secs_f32();
@@ -174,12 +178,14 @@ fn main() -> Result<()> {
                 let player = &mut level_screen.player;
 
                 let level_width = (level.width * level::TILE_SIZE) as f32;
-                player.update(
+
+                let player_update = player.update(
                     &input,
                     delta.as_secs_f32(),
                     &level.blocks,
                     level_width - player::HITBOX_WIDTH,
                 );
+                jumped = player_update.jumped;
 
                 // death: reset after falling below the level
                 let level_height = (level.height * level::TILE_SIZE) as f32;
@@ -187,6 +193,7 @@ fn main() -> Result<()> {
                     player.reset();
                     level_screen.remaining_coins = level.coins.clone();
                     level_screen.coin_count = 0;
+                    died = true;
                 } else {
                     // check if we touched any coins
                     level_screen.remaining_coins.retain(|&(x, y)| {
@@ -198,6 +205,7 @@ fn main() -> Result<()> {
                         );
                         if collected {
                             level_screen.coin_count += 1;
+                            collected_coin = true;
                         }
                         !collected
                     });
@@ -225,12 +233,25 @@ fn main() -> Result<()> {
                 );
             }
         }
+
         if let Some(index) = next_level {
             let level_screen = load_level(index)?;
             if let Some(audio) = &audio {
-                audio.set_music(&level_screen.level.music)?;
+                audio.play_music(&level_screen.level.music)?;
             }
             screen = Screen::Level(level_screen);
+        }
+
+        if let Some(audio) = &audio {
+            if jumped {
+                audio.play_effect(SoundEffect::Jump)?;
+            }
+            if collected_coin {
+                audio.play_effect(SoundEffect::Coin)?;
+            }
+            if died {
+                audio.play_effect(SoundEffect::Dead)?;
+            }
         }
         input.jump_pressed = false;
         input.confirm_pressed = false;
