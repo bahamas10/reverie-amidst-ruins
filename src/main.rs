@@ -93,11 +93,8 @@ fn main() -> Result<()> {
     // parse args
     let args = args::parse();
 
-    // print the start message
-    print_styled_text(include_str!("../assets/metadata.txt"));
-
     // load the first level behind the title screen
-    let level_screen = load_level(0)?;
+    let level_screen = load_level(args.level as usize - 1)?;
 
     // start the title music unless audio was disabled
     let audio = if args.no_audio {
@@ -108,6 +105,9 @@ fn main() -> Result<()> {
                 .context("could not initialize audio")?,
         )
     };
+
+    // print the start message
+    print_styled_text(include_str!("../assets/metadata.txt"));
 
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;

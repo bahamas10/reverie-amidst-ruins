@@ -24,6 +24,7 @@ $(dim)
 
   $(c6)--width <num>     $(reset)Width of output, defaults to full terminal
   $(c6)--no-audio        $(reset)Disable audio
+  $(c6)--level <num>     $(reset)Level to start on, defaults to 1
 
 $(dim)
 ========================================================
