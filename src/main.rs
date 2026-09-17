@@ -319,7 +319,7 @@ fn main() -> Result<()> {
                 .duration_since(UNIX_EPOCH)
                 .context("system clock is bad")?
                 .as_millis();
-            let filename = format!("ram-screenshot-{timestamp}.png");
+            let filename = format!("rar-screenshot-{timestamp}.png");
 
             // we could maybe check if the file exists before saving it? i think
             // it's fine to not bother since the name is unique enough?
