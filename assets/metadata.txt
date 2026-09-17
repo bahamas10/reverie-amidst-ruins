@@ -19,6 +19,14 @@ Utility
 
 $(dim)
 ========================================================
+==    $(reset)$(c6)Command Arguments                              $(reset)$(dim) ==
+========================================================$(reset)
+
+  $(c6)--width <num>     $(reset)Width of output, defaults to full terminal
+  $(c6)--no-audio        $(reset)Disable audio
+
+$(dim)
+========================================================
 ==    $(reset)$(c6)Credits                                        $(reset)$(dim) ==
 ========================================================$(reset)
 
