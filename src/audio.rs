@@ -19,6 +19,7 @@ const FINAL_STORM: &[u8] =
 const JUMP: &[u8] = include_bytes!("../assets/sfx/jump.wav");
 const COIN: &[u8] = include_bytes!("../assets/sfx/coin.wav");
 const DEAD: &[u8] = include_bytes!("../assets/sfx/dead.wav");
+const SFX_VOLUME: f32 = 0.55;
 
 pub enum SoundEffect {
     Jump,
@@ -85,7 +86,7 @@ impl Audio {
             SoundEffect::Dead => self.dead.clone(),
         };
 
-        self.sink.mixer().add(sound);
+        self.sink.mixer().add(sound.amplify(SFX_VOLUME));
 
         Ok(())
     }
