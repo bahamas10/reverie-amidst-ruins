@@ -1,5 +1,5 @@
 name: TODO
-music: TODO
+music: colors
 background: nebula
 palette: #210914, #621437, #D72F5E, #FFB04A
 

@@ -15,6 +15,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{Context, Result};
 
 mod args;
+mod audio;
 mod camera;
 mod input;
 mod level;
@@ -73,6 +74,10 @@ fn main() -> Result<()> {
     // load the first level behind the title screen
     let level_screen = load_level(0)?;
 
+    // start the title music
+    let audio = audio::Audio::new("reverie-amidst-ruins")
+        .context("could not initialize audio")?;
+
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;
     let mut input = input::Input::default();
@@ -116,7 +121,10 @@ fn main() -> Result<()> {
         // remove the title and spawn the player into the active level
         if input.confirm_pressed {
             screen = match screen {
-                Screen::Title(level_screen) => Screen::Level(level_screen),
+                Screen::Title(level_screen) => {
+                    audio.set_music(&level_screen.level.music)?;
+                    Screen::Level(level_screen)
+                }
                 screen => screen,
             };
         }
@@ -186,7 +194,9 @@ fn main() -> Result<()> {
             }
         }
         if let Some(index) = next_level {
-            screen = Screen::Level(load_level(index)?);
+            let level_screen = load_level(index)?;
+            audio.set_music(&level_screen.level.music)?;
+            screen = Screen::Level(level_screen);
         }
         input.jump_pressed = false;
         input.confirm_pressed = false;

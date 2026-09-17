@@ -1,5 +1,5 @@
 name: TODO
-music: TODO
+music: echoes-of-solace
 background: snow
 palette: #071A1D, #174B45, #2F8F5B, #A8D96F
 
