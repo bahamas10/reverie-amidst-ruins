@@ -20,7 +20,7 @@ const BACKGROUND_PARALLAX_NUM: f32 = 0.35;
 // full-screen post-processing
 const VIGNETTE_START: f32 = 0.20;
 const VIGNETTE_STRENGTH: f32 = 0.45;
-const SCANLINE_BRIGHTNESS: f32 = 0.85;
+const SCANLINE_BRIGHTNESS: f32 = 1.55;
 
 // locations of the tiles in tileset PNG
 const GROUND: (usize, usize) = (0, 0);

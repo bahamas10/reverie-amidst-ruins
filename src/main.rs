@@ -85,7 +85,7 @@ fn main() -> Result<()> {
 
     // "HUD"
     let mut message = None;
-    let mut effects_enabled = false;
+    let mut effects_enabled = true;
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
     let mut fps = 0.0;
