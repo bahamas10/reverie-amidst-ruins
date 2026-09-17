@@ -5,7 +5,10 @@
 use std::io::Cursor;
 
 use anyhow::{Context, Result, bail};
-use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
+use rodio::{
+    Decoder, DeviceSinkBuilder, MixerDeviceSink, Player, Source,
+    buffer::SamplesBuffer,
+};
 
 const REVERIE: &[u8] =
     include_bytes!("../assets/songs/reverie-amidst-ruins.ogg");
@@ -26,6 +29,10 @@ pub enum SoundEffect {
 pub struct Audio {
     sink: MixerDeviceSink,
     music: Player,
+
+    jump: SamplesBuffer,
+    coin: SamplesBuffer,
+    dead: SamplesBuffer,
 }
 
 impl Audio {
@@ -37,7 +44,16 @@ impl Audio {
         let music = Player::connect_new(sink.mixer());
         music.set_volume(1.0);
 
-        let audio = Self { sink, music };
+        // the sound effects felt laggy when i first introduced them, so cache
+        // them here at startup
+        let audio = Self {
+            sink,
+            music,
+            jump: decode_effect(JUMP, "jump")?,
+            coin: decode_effect(COIN, "coin")?,
+            dead: decode_effect(DEAD, "dead")?,
+        };
+
         audio.play_music(initial_music)?;
 
         Ok(audio)
@@ -63,16 +79,25 @@ impl Audio {
     }
 
     pub fn play_effect(&self, effect: SoundEffect) -> Result<()> {
-        let bytes = match effect {
-            SoundEffect::Jump => JUMP,
-            SoundEffect::Coin => COIN,
-            SoundEffect::Dead => DEAD,
+        let sound = match effect {
+            SoundEffect::Jump => self.jump.clone(),
+            SoundEffect::Coin => self.coin.clone(),
+            SoundEffect::Dead => self.dead.clone(),
         };
 
-        let sound = Decoder::try_from(Cursor::new(bytes))
-            .context("could not play sound effect")?;
         self.sink.mixer().add(sound);
 
         Ok(())
     }
+}
+
+fn decode_effect(bytes: &'static [u8], name: &str) -> Result<SamplesBuffer> {
+    let source = Decoder::try_from(Cursor::new(bytes))
+        .with_context(|| format!("could not decode sound effect: {name}"))?;
+
+    let channels = source.channels();
+    let sample_rate = source.sample_rate();
+    let samples = source.collect::<Vec<_>>();
+
+    Ok(SamplesBuffer::new(channels, sample_rate, samples))
 }
