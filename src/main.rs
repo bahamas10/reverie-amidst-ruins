@@ -164,11 +164,12 @@ fn main() -> Result<()> {
 
         // update the active screen
         let mut next_level = None;
+        let mut finished = false;
         let mut jumped = false;
         let mut collected_coin = false;
         let mut died = false;
         match &mut screen {
-            Screen::Title(level_screen) => {
+            Screen::Title(level_screen) | Screen::End(level_screen) => {
                 level_screen.elapsed += delta.as_secs_f32();
             }
             Screen::Level(level_screen) => {
@@ -218,8 +219,12 @@ fn main() -> Result<()> {
                         level::TILE_SIZE as f32,
                         level::TILE_SIZE as f32,
                     );
-                    if goal && level_screen.index + 1 < LEVELS.len() {
-                        next_level = Some(level_screen.index + 1);
+                    if goal {
+                        if level_screen.index + 1 < LEVELS.len() {
+                            next_level = Some(level_screen.index + 1);
+                        } else {
+                            finished = true;
+                        }
                     }
                 }
 
@@ -240,6 +245,11 @@ fn main() -> Result<()> {
                 audio.play_music(&level_screen.level.music)?;
             }
             screen = Screen::Level(level_screen);
+        } else if finished {
+            screen = match screen {
+                Screen::Level(level_screen) => Screen::End(level_screen),
+                screen => screen,
+            };
         }
 
         if let Some(audio) = &audio {
@@ -282,6 +292,20 @@ fn main() -> Result<()> {
                 HEIGHT as u32,
             )
             .context("could not render level")?,
+            Screen::End(level_screen) => {
+                let mut frame = render::level(
+                    &level_screen.level,
+                    None,
+                    &level_screen.camera,
+                    &level_screen.remaining_coins,
+                    level_screen.elapsed,
+                    WIDTH as u32,
+                    HEIGHT as u32,
+                )
+                .context("could not render end level")?;
+                render::end(&mut frame)?;
+                frame
+            }
         };
 
         // apply full-screen effects to the final composed image
@@ -341,7 +365,7 @@ fn main() -> Result<()> {
         let msg = message.as_ref().map(|(text, _)| text.as_str()).unwrap_or("");
 
         match &screen {
-            Screen::Title(_) => {
+            Screen::Title(_) | Screen::End(_) => {
                 if !msg.is_empty() {
                     print!("{}\x1b[K\r", msg);
                 }

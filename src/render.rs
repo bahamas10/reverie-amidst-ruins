@@ -36,6 +36,7 @@ const BACKGROUND_SNOW: &[u8] = include_bytes!("../assets/backgrounds/snow.png");
 const BACKGROUND_NEBULA: &[u8] =
     include_bytes!("../assets/backgrounds/nebula.png");
 const TITLE: &[u8] = include_bytes!("../assets/backgrounds/title.png");
+const END: &[u8] = include_bytes!("../assets/backgrounds/end.png");
 const TILESET: &[u8] = include_bytes!("../assets/tiles/tileset.png");
 
 // ok, i don't know how i feel about this currently, but this is the exact
@@ -49,12 +50,22 @@ const SOURCE_PALETTE: Palette = [
     [0xf2, 0xff, 0x66],
 ];
 
+/// Render "title" screen
 pub fn title(frame: &mut RgbaImage) -> Result<()> {
-    let title = image::load_from_memory(TITLE)
-        .context("could not decode title.png")?
+    overlay_image(frame, TITLE)
+}
+
+/// Render "end" screen
+pub fn end(frame: &mut RgbaImage) -> Result<()> {
+    overlay_image(frame, END)
+}
+
+fn overlay_image(frame: &mut RgbaImage, bytes: &[u8]) -> Result<()> {
+    let img = image::load_from_memory(bytes)
+        .context("could not decode image")?
         .into_rgba8();
 
-    imageops::overlay(frame, &title, 0, 0);
+    imageops::overlay(frame, &img, 0, 0);
 
     Ok(())
 }

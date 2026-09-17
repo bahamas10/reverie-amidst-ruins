@@ -12,6 +12,8 @@ pub enum Screen {
     // title screen has a level underneath it
     Title(LevelScreen),
     Level(LevelScreen),
+    // end screen has the final level underneath it
+    End(LevelScreen),
 }
 
 pub struct LevelScreen {
