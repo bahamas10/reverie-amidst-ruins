@@ -37,26 +37,41 @@ impl Stats {
 
     pub fn print_oneline(&self) {
         print!(
-            "total playtime: {} | levels beaten: {} | coins collected total: {}/{} | deaths: {}",
-            self.formatted_playtime(),
+            "total playtime: {} | levels beaten: {} | coins collected: {} | deaths: {}",
+            self.format_playtime(),
             self.levels_beaten,
-            self.coins_collected,
-            self.coins_total,
+            self.format_coins(),
             self.deaths,
         );
+        if self.is_true_ending() {
+            print!(" | True Ending");
+        }
     }
 
     pub fn print_multiline(&self) {
-        println!("total playtime: {}", self.formatted_playtime());
+        println!("total playtime: {}", self.format_playtime());
         println!("levels beaten: {}", self.levels_beaten);
-        println!(
-            "coins collected: {}/{}",
-            self.coins_collected, self.coins_total
-        );
+        println!("coins collected: {}", self.format_coins());
         println!("deaths: {}", self.deaths);
+        if self.is_true_ending() {
+            println!("\nTrue Ending!");
+        }
     }
 
-    fn formatted_playtime(&self) -> String {
+    fn is_true_ending(&self) -> bool {
+        self.coins_collected == self.coins_total && self.deaths == 0
+    }
+
+    fn format_coins(&self) -> String {
+        let smiley = if self.coins_collected == self.coins_total {
+            "\x1b[32m:)\x1b[0m"
+        } else {
+            ":("
+        };
+        format!("{}/{} {}", self.coins_collected, self.coins_total, smiley)
+    }
+
+    fn format_playtime(&self) -> String {
         let seconds = self.playtime.as_secs();
         let hours = seconds / 60 / 60;
         let minutes = seconds / 60 % 60;
