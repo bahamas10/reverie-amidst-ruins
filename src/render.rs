@@ -23,6 +23,10 @@ const VIGNETTE_START: f32 = 0.20;
 const VIGNETTE_STRENGTH: f32 = 0.45;
 const SCANLINE_BRIGHTNESS: f32 = 1.55;
 
+// sprite drop shadows
+const SHADOW_OFFSET: (i32, i32) = (3, 3);
+const SHADOW_OPACITY: u8 = 50;
+
 // locations of the tiles in tileset PNG
 const GROUND: (usize, usize) = (0, 0);
 const GROUND_TOP: (usize, usize) = (16, 0);
@@ -287,5 +291,18 @@ fn sprite_sized(
         imageops::flip_horizontal_in_place(&mut tile);
     }
 
+    // make the shadow based on the final sprite
+    let mut shadow = tile.clone();
+    for pixel in shadow.pixels_mut() {
+        pixel.0[..3].fill(0);
+        pixel.0[3] = (pixel.0[3] as u16 * SHADOW_OPACITY as u16 / 255) as u8;
+    }
+
+    imageops::overlay(
+        frame,
+        &shadow,
+        (destination.0 + SHADOW_OFFSET.0).into(),
+        (destination.1 + SHADOW_OFFSET.1).into(),
+    );
     imageops::overlay(frame, &tile, destination.0.into(), destination.1.into());
 }
