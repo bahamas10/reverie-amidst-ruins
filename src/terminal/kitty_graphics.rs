@@ -67,7 +67,7 @@ fn write_rgba(
             // C=1: don't move the cursor
             write!(
                 output,
-                "a=T,f=32,s={width},v={height},c={},r={},i={IMAGE_ID},p={PLACEMENT_ID},o=z,C=1,",
+                "a=T,f=32,s={width},v={height},c={},r={},i={IMAGE_ID},p={PLACEMENT_ID},o=z,C=1,z=-1,",
                 placement.width, placement.height,
             )?;
             first = false;
