@@ -62,6 +62,9 @@ impl Input {
                 }
                 self.jump = is_down;
             }
+            KeyCode::Char('r') if is_pressed => {
+                self.restart_pressed = true;
+            }
             KeyCode::Esc | KeyCode::Char('q' | 'Q') => self.quit = is_down,
             KeyCode::Enter => {
                 if is_pressed {
@@ -69,19 +72,16 @@ impl Input {
                 }
                 self.confirm = is_down;
             }
-            KeyCode::Char('2') if is_pressed => {
-                self.screenshot_pressed = true;
-            }
             KeyCode::Char('1') if is_pressed => {
                 self.effects_toggle_pressed = true;
+            }
+            KeyCode::Char('2') if is_pressed => {
+                self.screenshot_pressed = true;
             }
             KeyCode::Char('3') if is_pressed => {
                 self.palette_randomize_pressed = true;
             }
-            KeyCode::Char('4') if is_pressed => {
-                self.restart_pressed = true;
-            }
-            KeyCode::Char('5') if is_pressed => {
+            KeyCode::Char('m') if is_pressed => {
                 self.mute_toggle_pressed = true;
             }
             KeyCode::Char('-' | '_') if is_pressed => {
