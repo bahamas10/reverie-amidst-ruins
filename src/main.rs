@@ -416,9 +416,13 @@ fn main() -> Result<()> {
             }
             Screen::Level(level_screen) => {
                 print!(
-                    "fps = {:.1} | coins = {} | {}\x1b[K\r",
-                    fps, level_screen.coin_count, msg
+                    "fps = {:.1} | coins = {}",
+                    fps, level_screen.coin_count
                 );
+                if !msg.is_empty() {
+                    print!(" | {}", msg);
+                }
+                print!("\x1b[K\r");
             }
         }
 
