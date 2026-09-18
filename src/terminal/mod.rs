@@ -13,7 +13,7 @@ use crossterm::event::{
     self, Event, KeyEvent, KeyboardEnhancementFlags,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
-use crossterm::{cursor, execute, terminal};
+use crossterm::{cursor, execute, queue, terminal};
 
 pub mod kitty_graphics;
 
@@ -84,6 +84,7 @@ impl Terminal {
             (current_width as i32 + amount as i32).clamp(1, max_width as i32);
 
         self.image_width = Some(new_width as u16);
+        self.clear_screen().unwrap();
     }
 
     /// Figure out where to place the image at its current display width.
@@ -158,6 +159,7 @@ impl Terminal {
                     self.size = terminal::window_size()
                         .context("could not read terminal size")?;
                     self.image_width = None;
+                    self.clear_screen()?;
                 }
                 _ => {}
             }
@@ -190,6 +192,15 @@ impl Terminal {
         terminal::disable_raw_mode().context("could not disable raw mode")?;
 
         self.active = false;
+
+        Ok(())
+    }
+
+    fn clear_screen(&self) -> Result<()> {
+        let mut stdout = std::io::stdout();
+
+        queue!(stdout, terminal::Clear(terminal::ClearType::All))
+            .context("failed to clear screen")?;
 
         Ok(())
     }
