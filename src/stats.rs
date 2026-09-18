@@ -61,7 +61,8 @@ impl Stats {
         let hours = seconds / 60 / 60;
         let minutes = seconds / 60 % 60;
         let seconds = seconds % 60;
+        let milliseconds = self.playtime.subsec_millis();
 
-        format!("{hours}:{minutes:02}:{seconds:02}")
+        format!("{hours}:{minutes:02}:{seconds:02}.{milliseconds:03}")
     }
 }
