@@ -139,7 +139,7 @@ impl Terminal {
         // delete the kitty image
         write!(
             stdout,
-            "\x1b_Ga=d,d=I,i={},q=2;\x1b\\",
+            "\x1b_Ga=d,d=I,i={},q=1;\x1b\\",
             kitty_graphics::IMAGE_ID
         )?;
 

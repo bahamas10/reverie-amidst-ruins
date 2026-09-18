@@ -65,10 +65,9 @@ fn write_rgba(
             // i/p: replace the same image placement every frame
             // o=z: image data is compressed with zlib
             // C=1: don't move the cursor
-            // q=2: quiet errors
             write!(
                 output,
-                "a=T,f=32,s={width},v={height},c={},r={},i={IMAGE_ID},p={PLACEMENT_ID},o=z,C=1,q=2,",
+                "a=T,f=32,s={width},v={height},c={},r={},i={IMAGE_ID},p={PLACEMENT_ID},o=z,C=1,",
                 placement.width, placement.height,
             )?;
             first = false;
@@ -80,7 +79,9 @@ fn write_rgba(
             true => 1,
             false => 0,
         };
-        write!(output, "m={};", m)?;
+        // repeat q on continuation chunks too. kitty on iterm2 doesn't seem to
+        // carry the quiet setting forward from the first chunk.
+        write!(output, "m={},q=1;", m)?;
 
         output.write_all(chunk)?;
         output.write_all(APC_END)?;
