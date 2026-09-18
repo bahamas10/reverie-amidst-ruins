@@ -178,6 +178,16 @@ fn main() -> Result<()> {
         }
         input.mute_toggle_pressed = false;
 
+        if input.scale_down_pressed {
+            term_handle.adjust_image_width(-1, WIDTH, HEIGHT);
+        }
+        input.scale_down_pressed = false;
+
+        if input.scale_up_pressed {
+            term_handle.adjust_image_width(1, WIDTH, HEIGHT);
+        }
+        input.scale_up_pressed = false;
+
         let restarted = if input.restart_pressed {
             if let Screen::Level(level_screen) = &mut screen {
                 level_screen.player.reset();
@@ -383,11 +393,8 @@ fn main() -> Result<()> {
         input.screenshot_pressed = false;
 
         // display the frame
-        let placement = term_handle.image_placement(
-            frame.width() as usize,
-            frame.height() as usize,
-            args.width,
-        );
+        let placement = term_handle
+            .image_placement(frame.width() as usize, frame.height() as usize);
         terminal::kitty_graphics::display_rgba(
             frame.as_raw(),
             frame.width() as usize,

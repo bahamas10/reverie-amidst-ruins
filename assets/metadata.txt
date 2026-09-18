@@ -19,6 +19,8 @@ Utility
 - $(c6)num 3        $(reset) -> Randomize level color palette
 - $(c6)num 4        $(reset) -> Restart level (counts as a death)
 - $(c6)num 5        $(reset) -> Mute audio
+- $(c6)- / _        $(reset) -> Shrink image by one column
+- $(c6)+ / =        $(reset) -> Grow image by one column
 
 $(dim)
 ========================================================
@@ -27,7 +29,6 @@ $(dim)
 
   $(c6)--level <num>     $(reset)Level to start on, defaults to 1
   $(c6)--no-audio        $(reset)Disable audio
-  $(c6)--width <num>     $(reset)Width of output, defaults to full terminal
 
 $(dim)
 ========================================================

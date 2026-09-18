@@ -34,6 +34,9 @@ pub struct Terminal {
     active: bool,
     keyboard_flags: bool,
     size: terminal::WindowSize,
+
+    // optional requested width by the user (used for scaling)
+    image_width: Option<u16>,
 }
 
 impl Terminal {
@@ -62,24 +65,63 @@ impl Terminal {
         )
         .is_ok();
 
-        Ok(Self { active: true, keyboard_flags, size })
+        Ok(Self { active: true, keyboard_flags, size, image_width: None })
     }
 
-    /// figure out where to place an image based on the terminal size and
-    /// optionally a requested width by the caller
+    /// Adjust the displayed image width by a number of columns
+    pub fn adjust_image_width(
+        &mut self,
+        amount: i16,
+        image_width: usize,
+        image_height: usize,
+    ) {
+        let max_width = self
+            .fitted_size(image_width, image_height, self.size.columns.max(1))
+            .0;
+        let current_width =
+            self.image_width.unwrap_or(max_width).min(max_width);
+        let new_width =
+            (current_width as i32 + amount as i32).clamp(1, max_width as i32);
+
+        self.image_width = Some(new_width as u16);
+    }
+
+    /// Figure out where to place the image at its current display width.
     pub fn image_placement(
         &self,
         image_width: usize,
         image_height: usize,
-        requested_width: Option<u16>,
     ) -> ImagePlacement {
+        let columns = self.size.columns.max(1);
+        let rows = self.size.rows.max(1);
+        let max_width = self.fitted_size(image_width, image_height, columns).0;
+        let requested_width =
+            self.image_width.unwrap_or(max_width).min(max_width);
+        let (width, height) =
+            self.fitted_size(image_width, image_height, requested_width);
+
+        // center the image always
+        ImagePlacement {
+            column: (columns - width) / 2,
+            row: (rows - height) / 2,
+            width,
+            height,
+        }
+    }
+
+    fn fitted_size(
+        &self,
+        image_width: usize,
+        image_height: usize,
+        requested_width: u16,
+    ) -> (u16, u16) {
         let columns = self.size.columns.max(1);
         let rows = self.size.rows.max(1);
 
         let cell_width = self.size.width.max(1) as f32 / columns as f32;
         let cell_height = self.size.height.max(1) as f32 / rows as f32;
 
-        let mut width = requested_width.unwrap_or(columns).min(columns).max(1);
+        let mut width = requested_width.min(columns).max(1);
         let mut height = (width as f32 * image_height as f32 * cell_width
             / (image_width as f32 * cell_height))
             .ceil() as u16;
@@ -95,13 +137,7 @@ impl Terminal {
         width = width.max(1);
         height = height.max(1);
 
-        // center the image always
-        ImagePlacement {
-            column: (columns - width) / 2,
-            row: (rows - height) / 2,
-            width,
-            height,
-        }
+        (width, height)
     }
 
     /// Read terminal events, react to some, and return all key events
@@ -121,6 +157,7 @@ impl Terminal {
                 Event::Resize(_, _) => {
                     self.size = terminal::window_size()
                         .context("could not read terminal size")?;
+                    self.image_width = None;
                 }
                 _ => {}
             }
