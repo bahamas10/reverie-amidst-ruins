@@ -120,8 +120,7 @@ fn main() -> Result<()> {
     let mut screen = Screen::Title(level_screen);
 
     // target FPS
-    let target_fps = 60.0;
-    let frame_duration = Duration::from_secs_f32(1.0 / target_fps);
+    let frame_duration = Duration::from_secs_f32(1.0 / args.fps as f32);
     let mut next_frame = Instant::now();
 
     // "HUD"

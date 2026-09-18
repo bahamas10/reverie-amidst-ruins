@@ -27,8 +27,9 @@ $(dim)
 ==    $(reset)$(c6)Command Arguments                              $(reset)$(dim) ==
 ========================================================$(reset)
 
+  $(c6)--fps <num>       $(reset)FPS to target, defaults to 60
   $(c6)--level <num>     $(reset)Level to start on, defaults to 1
-  $(c6)--no-audio        $(reset)Disable audio
+  $(c6)--no-audio        $(reset)Disable audio completely
 
 $(dim)
 ========================================================
