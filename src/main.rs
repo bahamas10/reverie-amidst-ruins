@@ -22,10 +22,12 @@ mod level;
 mod player;
 mod render;
 mod screen;
+mod stats;
 mod terminal;
 
 use audio::SoundEffect;
 use screen::{LevelScreen, Screen};
+use stats::Stats;
 use terminal::Terminal;
 
 const LEVELS: &[&str] = &[
@@ -92,9 +94,11 @@ fn print_styled_text(text: &str) {
 fn main() -> Result<()> {
     // parse args
     let args = args::parse();
+    let start_level = args.level as usize - 1;
 
     // load the first level behind the title screen
-    let level_screen = load_level(args.level as usize - 1)?;
+    let level_screen = load_level(start_level)?;
+    let mut stats = Stats::new(start_level, LEVELS)?;
 
     // start the title music unless audio was disabled
     let audio = if args.no_audio {
@@ -128,6 +132,7 @@ fn main() -> Result<()> {
 
     // game loop
     let mut last_time = Instant::now();
+    let mut finished = false;
     while !input.quit {
         let now = Instant::now();
         let delta = now.duration_since(last_time);
@@ -164,7 +169,6 @@ fn main() -> Result<()> {
 
         // update the active screen
         let mut next_level = None;
-        let mut finished = false;
         let mut jumped = false;
         let mut collected_coin = false;
         let mut died = false;
@@ -173,6 +177,7 @@ fn main() -> Result<()> {
                 level_screen.elapsed += delta.as_secs_f32();
             }
             Screen::Level(level_screen) => {
+                stats.playtime += delta;
                 level_screen.elapsed += delta.as_secs_f32();
 
                 let level = &level_screen.level;
@@ -194,6 +199,7 @@ fn main() -> Result<()> {
                     player.reset();
                     level_screen.remaining_coins = level.coins.clone();
                     level_screen.coin_count = 0;
+                    stats.deaths += 1;
                     died = true;
                 } else {
                     // check if we touched any coins
@@ -220,6 +226,9 @@ fn main() -> Result<()> {
                         level::TILE_SIZE as f32,
                     );
                     if goal {
+                        stats.levels_beaten += 1;
+                        stats.coins_collected += level_screen.coin_count;
+
                         if level_screen.index + 1 < LEVELS.len() {
                             next_level = Some(level_screen.index + 1);
                         } else {
@@ -365,10 +374,17 @@ fn main() -> Result<()> {
         let msg = message.as_ref().map(|(text, _)| text.as_str()).unwrap_or("");
 
         match &screen {
-            Screen::Title(_) | Screen::End(_) => {
+            Screen::Title(_) => {
                 if !msg.is_empty() {
                     print!("{}\x1b[K\r", msg);
                 }
+            }
+            Screen::End(_) => {
+                stats.print_oneline();
+                if !msg.is_empty() {
+                    print!(" | {}", msg);
+                }
+                print!("\x1b[K\r");
             }
             Screen::Level(level_screen) => {
                 print!(
@@ -387,6 +403,14 @@ fn main() -> Result<()> {
             // rendering took longer than a frame uh oh - should we warn?
             next_frame = Instant::now();
         }
+    }
+
+    term_handle.deinit()?;
+
+    if finished {
+        println!("\n\nCongratulations - You Win!\n");
+        stats.print_multiline();
+        println!();
     }
 
     Ok(())
