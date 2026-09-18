@@ -16,15 +16,16 @@ Movement
 Utility
 - $(c6)num 1        $(reset) -> Toggle post-processing effects
 - $(c6)num 2        $(reset) -> Save screenshot to current directory
+- $(c6)num 3        $(reset) -> Randomize level color palette
 
 $(dim)
 ========================================================
 ==    $(reset)$(c6)Command Arguments                              $(reset)$(dim) ==
 ========================================================$(reset)
 
-  $(c6)--width <num>     $(reset)Width of output, defaults to full terminal
-  $(c6)--no-audio        $(reset)Disable audio
   $(c6)--level <num>     $(reset)Level to start on, defaults to 1
+  $(c6)--no-audio        $(reset)Disable audio
+  $(c6)--width <num>     $(reset)Width of output, defaults to full terminal
 
 $(dim)
 ========================================================

@@ -30,6 +30,9 @@ pub struct Input {
     // just pressed effects toggle
     pub effects_toggle_pressed: bool,
 
+    // just pressed palette randomize
+    pub palette_randomize_pressed: bool,
+
     // is holding / pressed quit
     pub quit: bool,
 }
@@ -61,6 +64,9 @@ impl Input {
             }
             KeyCode::Char('1') if is_pressed => {
                 self.effects_toggle_pressed = true;
+            }
+            KeyCode::Char('3') if is_pressed => {
+                self.palette_randomize_pressed = true;
             }
             _ => {}
         }

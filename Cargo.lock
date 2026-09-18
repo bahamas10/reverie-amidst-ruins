@@ -1559,6 +1559,7 @@ dependencies = [
  "crossterm",
  "flate2",
  "image",
+ "rand",
  "rodio",
  "spin_sleep",
 ]

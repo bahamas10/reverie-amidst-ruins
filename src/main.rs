@@ -47,6 +47,24 @@ const DEATH_PLANE: f32 = 70.0;
 // how long a message should stay on screen
 const MESSAGE_DURATION: Duration = Duration::from_secs(3);
 
+// todo: move this
+// generate a random palette
+fn random_palette() -> level::Palette {
+    let mut palette = [[0; 3]; 4];
+
+    for color in &mut palette {
+        *color = [rand::random(), rand::random(), rand::random()];
+    }
+
+    // sort colors by brightness (our tilemap is)
+    // https://stackoverflow.com/questions/20213421/sorting-color-selections-on-brightness
+    palette.sort_by_key(|[r, g, b]| {
+        299 * *r as u32 + 587 * *g as u32 + 114 * *b as u32
+    });
+
+    palette
+}
+
 fn load_level(index: usize) -> Result<LevelScreen> {
     let source = LEVELS.get(index).context("unknown level")?;
 
@@ -153,6 +171,16 @@ fn main() -> Result<()> {
             ));
         }
         input.effects_toggle_pressed = false;
+
+        if input.palette_randomize_pressed {
+            let palette = random_palette();
+            match &mut screen {
+                Screen::Title(s) => s.level.palette = palette,
+                Screen::Level(s) => s.level.palette = palette,
+                Screen::End(s) => s.level.palette = palette,
+            };
+        }
+        input.palette_randomize_pressed = false;
 
         // remove the title and spawn the player into the active level
         if input.confirm_pressed {
