@@ -8,7 +8,8 @@ use anyhow::{Context, Result, bail};
 use image::{RgbaImage, imageops};
 
 use crate::camera::Camera;
-use crate::level::{LevelDefinition, Palette, TILE_SIZE};
+use crate::color::Palette;
+use crate::level::{LevelDefinition, TILE_SIZE};
 use crate::player::{HITBOX_HEIGHT, HITBOX_WIDTH, Player};
 
 // animations

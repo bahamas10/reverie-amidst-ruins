@@ -6,13 +6,9 @@ use std::collections::HashMap;
 
 use anyhow::{Context, Result, bail, ensure};
 
+use crate::color::Palette;
+
 pub const TILE_SIZE: usize = 16;
-
-/// every color is just [R, G, B]
-pub type Color = [u8; 3];
-
-/// every palette is just 4 colors (NES inspired)
-pub type Palette = [Color; 4];
 
 #[derive(Debug)]
 #[allow(unused)]
