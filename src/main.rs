@@ -34,8 +34,8 @@ const LEVELS: &[&str] = &[
     include_str!("../levels/level3.txt"),
 ];
 
-// internal width and height of the game viewport (rendered internall and then
-// optionally stretched)
+// internal width and height of the game viewport (rendered internally and then
+// stretched)
 const WIDTH: usize = 360;
 const HEIGHT: usize = 270;
 
