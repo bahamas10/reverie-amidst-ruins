@@ -17,6 +17,8 @@ Utility
 - $(c6)num 1        $(reset) -> Toggle post-processing effects
 - $(c6)num 2        $(reset) -> Save screenshot to current directory
 - $(c6)num 3        $(reset) -> Randomize level color palette
+- $(c6)num 4        $(reset) -> Restart level (counts as a death)
+- $(c6)num 5        $(reset) -> Mute audio
 
 $(dim)
 ========================================================

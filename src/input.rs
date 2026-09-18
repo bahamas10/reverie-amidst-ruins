@@ -33,6 +33,12 @@ pub struct Input {
     // just pressed palette randomize
     pub palette_randomize_pressed: bool,
 
+    // just pressed level restart
+    pub restart_pressed: bool,
+
+    // just pressed mute toggle
+    pub mute_toggle_pressed: bool,
+
     // is holding / pressed quit
     pub quit: bool,
 }
@@ -67,6 +73,12 @@ impl Input {
             }
             KeyCode::Char('3') if is_pressed => {
                 self.palette_randomize_pressed = true;
+            }
+            KeyCode::Char('4') if is_pressed => {
+                self.restart_pressed = true;
+            }
+            KeyCode::Char('5') if is_pressed => {
+                self.mute_toggle_pressed = true;
             }
             _ => {}
         }

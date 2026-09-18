@@ -102,7 +102,7 @@ fn main() -> Result<()> {
     let mut stats = Stats::new(start_level, LEVELS)?;
 
     // start the title music unless audio was disabled
-    let audio = if args.no_audio {
+    let mut audio = if args.no_audio {
         None
     } else {
         Some(
@@ -165,6 +165,34 @@ fn main() -> Result<()> {
         }
         input.palette_randomize_pressed = false;
 
+        if input.mute_toggle_pressed {
+            let state = if let Some(audio) = &mut audio {
+                if audio.toggle_mute() { "muted" } else { "unmuted" }
+            } else {
+                "disabled"
+            };
+            message = Some((
+                format!("audio {state}"),
+                Instant::now() + MESSAGE_DURATION,
+            ));
+        }
+        input.mute_toggle_pressed = false;
+
+        let restarted = if input.restart_pressed {
+            if let Screen::Level(level_screen) = &mut screen {
+                level_screen.player.reset();
+                level_screen.remaining_coins = level_screen.level.coins.clone();
+                level_screen.coin_count = 0;
+                stats.deaths += 1;
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        input.restart_pressed = false;
+
         // remove the title and spawn the player into the active level
         if input.confirm_pressed {
             screen = match screen {
@@ -182,7 +210,7 @@ fn main() -> Result<()> {
         let mut next_level = None;
         let mut jumped = false;
         let mut collected_coin = false;
-        let mut died = false;
+        let mut died = restarted;
         match &mut screen {
             Screen::Title(level_screen) | Screen::End(level_screen) => {
                 level_screen.elapsed += delta.as_secs_f32();

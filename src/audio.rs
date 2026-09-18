@@ -19,6 +19,7 @@ const FINAL_STORM: &[u8] =
 const JUMP: &[u8] = include_bytes!("../assets/sfx/jump.wav");
 const COIN: &[u8] = include_bytes!("../assets/sfx/coin.wav");
 const DEAD: &[u8] = include_bytes!("../assets/sfx/dead.wav");
+const MUSIC_VOLUME: f32 = 1.0;
 const SFX_VOLUME: f32 = 0.55;
 
 pub enum SoundEffect {
@@ -30,6 +31,7 @@ pub enum SoundEffect {
 pub struct Audio {
     sink: MixerDeviceSink,
     music: Player,
+    muted: bool,
 
     jump: SamplesBuffer,
     coin: SamplesBuffer,
@@ -43,13 +45,14 @@ impl Audio {
         sink.log_on_drop(false);
 
         let music = Player::connect_new(sink.mixer());
-        music.set_volume(1.0);
+        music.set_volume(MUSIC_VOLUME);
 
         // the sound effects felt laggy when i first introduced them, so cache
         // them here at startup
         let audio = Self {
             sink,
             music,
+            muted: false,
             jump: decode_effect(JUMP, "jump")?,
             coin: decode_effect(COIN, "coin")?,
             dead: decode_effect(DEAD, "dead")?,
@@ -80,6 +83,10 @@ impl Audio {
     }
 
     pub fn play_effect(&self, effect: SoundEffect) -> Result<()> {
+        if self.muted {
+            return Ok(());
+        }
+
         let sound = match effect {
             SoundEffect::Jump => self.jump.clone(),
             SoundEffect::Coin => self.coin.clone(),
@@ -89,6 +96,13 @@ impl Audio {
         self.sink.mixer().add(sound.amplify(SFX_VOLUME));
 
         Ok(())
+    }
+
+    /// Toggle all game audio, returning whether it is now muted.
+    pub fn toggle_mute(&mut self) -> bool {
+        self.muted = !self.muted;
+        self.music.set_volume(if self.muted { 0.0 } else { MUSIC_VOLUME });
+        self.muted
     }
 }
 
