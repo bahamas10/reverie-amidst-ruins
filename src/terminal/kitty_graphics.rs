@@ -57,19 +57,19 @@ fn write_rgba(
 
         // print metadata for the first loop
         if first {
-            // A=T: transfer and display image
-            // f=32: 32bit RGBA data
-            // s=width: image width
-            // v=height: image height
-            // c/r: display size in terminal columns and rows
-            // i/p: replace the same image placement every frame
-            // o=z: image data is compressed with zlib
-            // C=1: don't move the cursor
-            write!(
-                output,
-                "a=T,f=32,s={width},v={height},c={},r={},i={IMAGE_ID},p={PLACEMENT_ID},o=z,C=1,z=-1,",
-                placement.width, placement.height,
-            )?;
+            let d_width = placement.width;
+            let d_height = placement.height;
+            write!(output, "a=T,")?; // transfer and display image
+            write!(output, "f=32,")?; // 32bit RGBA data
+            write!(output, "s={width},")?; // image width
+            write!(output, "v={height},")?; // image height
+            write!(output, "c={d_width},")?; // display width
+            write!(output, "r={d_height},")?; // display height
+            write!(output, "i={IMAGE_ID},")?; // re-use the same image id
+            write!(output, "p={PLACEMENT_ID},")?; // re-use placement id
+            write!(output, "o=z,")?; // zlib compression
+            write!(output, "C=1,")?; // don't move the cursor
+            write!(output, "z=-1,")?; // z-index below text
             first = false;
         }
 
