@@ -89,3 +89,11 @@ fn write_rgba(
 
     Ok(())
 }
+
+pub fn delete_image(output: &mut impl Write) -> Result<()> {
+    output.write_all(APC_START)?;
+    write!(output, "a=d,d=I,i={},q=1;", IMAGE_ID)?;
+    output.write_all(APC_END)?;
+
+    Ok(())
+}

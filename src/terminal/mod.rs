@@ -5,7 +5,6 @@
  * Based on https://sw.kovidgoyal.net/kitty/graphics-protocol/
  */
 
-use std::io::Write;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -176,11 +175,7 @@ impl Terminal {
         let mut stdout = std::io::stdout();
 
         // delete the kitty image
-        write!(
-            stdout,
-            "\x1b_Ga=d,d=I,i={},q=1;\x1b\\",
-            kitty_graphics::IMAGE_ID
-        )?;
+        kitty_graphics::delete_image(&mut stdout)?;
 
         // restore the keyboard events if they were set
         if self.keyboard_flags {
