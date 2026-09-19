@@ -68,30 +68,6 @@ fn load_level(index: usize) -> Result<LevelScreen> {
     Ok(level_screen)
 }
 
-fn print_styled_text(text: &str) {
-    let template = &[
-        ("reset", "\x1b[0m"),
-        ("bold", "\x1b[1m"),
-        ("dim", "\x1b[2m"),
-        ("c1", "\x1b[31m"),
-        ("c2", "\x1b[32m"),
-        ("c3", "\x1b[33m"),
-        ("c4", "\x1b[34m"),
-        ("c5", "\x1b[35m"),
-        ("c6", "\x1b[36m"),
-        ("c7", "\x1b[37m"),
-        ("c8", "\x1b[38m"),
-    ];
-
-    let mut out = text.to_string();
-    for (k, v) in template {
-        let k = format!("$({})", k);
-        out = out.replace(&k, v);
-    }
-
-    println!("{}", out);
-}
-
 fn main() -> Result<()> {
     // parse args
     let args = args::parse();
@@ -112,7 +88,7 @@ fn main() -> Result<()> {
     };
 
     // print the start message
-    print_styled_text(include_str!("../assets/metadata.txt"));
+    args::print_help();
 
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;

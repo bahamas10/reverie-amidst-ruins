@@ -41,25 +41,20 @@ $(dim)
 
 All code, music, assets, etc. done by $(c2)Dave Eddy$(reset).
 
-Software Used
+The Game Itself
+ - Language       $(c6)Rust$(reset)
+ - Graphics       $(c6)Kitty Graphics Protocol$(reset)
+ - Audio Engine   $(c6)rodio Crate$(reset)
 
-- $(bold)The Game Itself$(reset)
- - Language: Rust
- - Graphics: Kitty Graphics Protocol
- - Audio Engine: rodio Crate
-
-- $(bold)Assets$(reset)
- - Backgrounds: Generated via
-   $(c6)https://deep-fold.itch.io/space-background-generator$(reset)
- - SFX: Generated via
-   $(c6)https://raylibtech.itch.io/rfxgen$(reset)
-
-- $(bold)Music$(reset)
- - All songs written by $(c2)Dave Eddy$(reset) in Logic Pro
+Assets
+ - Backgrounds    Generated via $(c6)https://deep-fold.itch.io/space-background-generator$(reset)
+ - SFX            Generated via $(c6)https://raylibtech.itch.io/rfxgen$(reset)
+ - Music          All songs written by $(c2)Dave Eddy$(reset) $(c6)https://music.daveeddy.com$(reset)
 
 Like the music? Listen to the full album in your terminal:
 
-    $(bold)$(c5)curl nightfall.ysap.sh | bash$(reset)
+    $(bold)$(c6)curl nightfall.ysap.sh | bash$(reset)
 
-- $(bold)My YouTube Channel$(reset)
-  $(c6)https://www.youtube.com/@yousuckatprogramming$(reset)
+Socials / Connect
+  - Source Code     $(c6)https://github.com/bahamas10/reverie-amidst-ruins$(reset)
+  - Dave's YouTube  $(c6)https://www.youtube.com/@yousuckatprogramming$(reset)
