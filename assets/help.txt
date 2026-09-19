@@ -47,9 +47,12 @@ The Game Itself
  - Audio Engine   $(c6)rodio Crate$(reset)
 
 Assets
- - Backgrounds    Generated via $(c6)https://deep-fold.itch.io/space-background-generator$(reset)
- - SFX            Generated via $(c6)https://raylibtech.itch.io/rfxgen$(reset)
- - Music          All songs written by $(c2)Dave Eddy$(reset) $(c6)https://music.daveeddy.com$(reset)
+ - Backgrounds    Generated via
+                  $(c6)https://deep-fold.itch.io/space-background-generator$(reset)
+ - SFX            Generated via
+                  $(c6)https://raylibtech.itch.io/rfxgen$(reset)
+ - Music          All songs written by $(c2)Dave Eddy$(reset)
+                  $(c6)https://music.daveeddy.com$(reset)
 
 Like the music? Listen to the full album in your terminal:
 
