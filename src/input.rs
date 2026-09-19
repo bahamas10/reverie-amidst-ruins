@@ -39,6 +39,10 @@ pub struct Input {
     // just pressed mute toggle
     pub mute_toggle_pressed: bool,
 
+    // just pressed volume down/up
+    pub volume_down_pressed: bool,
+    pub volume_up_pressed: bool,
+
     // just pressed image scale down/up
     pub scale_down_pressed: bool,
     pub scale_up_pressed: bool,
@@ -83,6 +87,12 @@ impl Input {
             }
             KeyCode::Char('m') if is_pressed => {
                 self.mute_toggle_pressed = true;
+            }
+            KeyCode::Char('8') if is_pressed => {
+                self.volume_down_pressed = true;
+            }
+            KeyCode::Char('9') if is_pressed => {
+                self.volume_up_pressed = true;
             }
             KeyCode::Char('-' | '_') if is_pressed => {
                 self.scale_down_pressed = true;

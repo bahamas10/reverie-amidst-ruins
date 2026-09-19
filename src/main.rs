@@ -106,7 +106,7 @@ fn main() -> Result<()> {
         None
     } else {
         Some(
-            audio::Audio::new("reverie-amidst-ruins")
+            audio::Audio::new("reverie-amidst-ruins", args.volume)
                 .context("could not initialize audio")?,
         )
     };
@@ -177,14 +177,24 @@ fn main() -> Result<()> {
         }
         input.mute_toggle_pressed = false;
 
-        if input.scale_down_pressed {
-            term_handle.adjust_image_width(-1, WIDTH, HEIGHT);
+        if input.volume_down_pressed || input.volume_up_pressed {
+            let num = if input.volume_down_pressed { -5 } else { 5 };
+
+            let status = match &mut audio {
+                Some(audio) => format!("volume {}%", audio.adjust_volume(num)),
+                None => "audio disabled".to_string(),
+            };
+
+            message = Some((status, Instant::now() + MESSAGE_DURATION));
+        }
+        input.volume_down_pressed = false;
+        input.volume_up_pressed = false;
+
+        if input.scale_down_pressed || input.scale_up_pressed {
+            let num = if input.scale_down_pressed { -1 } else { 1 };
+            term_handle.adjust_image_width(num, WIDTH, HEIGHT);
         }
         input.scale_down_pressed = false;
-
-        if input.scale_up_pressed {
-            term_handle.adjust_image_width(1, WIDTH, HEIGHT);
-        }
         input.scale_up_pressed = false;
 
         let restarted = if input.restart_pressed {

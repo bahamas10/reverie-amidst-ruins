@@ -32,6 +32,7 @@ pub struct Audio {
     sink: MixerDeviceSink,
     music: Player,
     muted: bool,
+    volume: u8,
 
     jump: SamplesBuffer,
     coin: SamplesBuffer,
@@ -39,13 +40,14 @@ pub struct Audio {
 }
 
 impl Audio {
-    pub fn new(initial_music: &str) -> Result<Self> {
+    pub fn new(initial_music: &str, volume: u8) -> Result<Self> {
         let mut sink = DeviceSinkBuilder::open_default_sink()
             .context("could not open the default audio output")?;
         sink.log_on_drop(false);
 
         let music = Player::connect_new(sink.mixer());
-        music.set_volume(MUSIC_VOLUME);
+        let volume = volume.min(100);
+        music.set_volume(MUSIC_VOLUME * volume as f32 / 100.0);
 
         // the sound effects felt laggy when i first introduced them, so cache
         // them here at startup
@@ -53,6 +55,7 @@ impl Audio {
             sink,
             music,
             muted: false,
+            volume,
             jump: decode_effect(JUMP, "jump")?,
             coin: decode_effect(COIN, "coin")?,
             dead: decode_effect(DEAD, "dead")?,
@@ -83,7 +86,8 @@ impl Audio {
     }
 
     pub fn play_effect(&self, effect: SoundEffect) -> Result<()> {
-        if self.muted {
+        let volume = self.volume_scale();
+        if volume == 0.0 {
             return Ok(());
         }
 
@@ -93,7 +97,7 @@ impl Audio {
             SoundEffect::Dead => self.dead.clone(),
         };
 
-        self.sink.mixer().add(sound.amplify(SFX_VOLUME));
+        self.sink.mixer().add(sound.amplify(SFX_VOLUME * volume));
 
         Ok(())
     }
@@ -101,8 +105,23 @@ impl Audio {
     /// Toggle all game audio, returning whether it is now muted.
     pub fn toggle_mute(&mut self) -> bool {
         self.muted = !self.muted;
-        self.music.set_volume(if self.muted { 0.0 } else { MUSIC_VOLUME });
+        self.update_music_volume();
         self.muted
+    }
+
+    /// Adjust master volume, returning its new 0-100 value.
+    pub fn adjust_volume(&mut self, amount: i8) -> u8 {
+        self.volume = (self.volume as i16 + amount as i16).clamp(0, 100) as u8;
+        self.update_music_volume();
+        self.volume
+    }
+
+    fn update_music_volume(&self) {
+        self.music.set_volume(MUSIC_VOLUME * self.volume_scale());
+    }
+
+    fn volume_scale(&self) -> f32 {
+        if self.muted { 0.0 } else { self.volume as f32 / 100.0 }
     }
 }
 
