@@ -40,20 +40,20 @@ then rendered onto an RGBA image completely in memory.  Then, the frame is
 compressed is zlib compressed and then written to the terminal via the [Kitty
 Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
 
-- [args.rs](args.rs) - CLI arguments
-- [audio.rs](audio.rs) - Audio Engine (music and SFX)
-- [camera.rs](camera.rs) - Player-following camera
-- [color.rs](color.rs) - Helpers to colorize tiles with custom palettes
-- [input.rs](input.rs) - Handle and abstract user input
-- [level.rs](level.rs) - Level processing and parsing (levels in [levels/](levels))
-- [main.rs](main.rs) - Main entry point and game loop
-- [player.rs](player.rs) - The player and its properties
-- [render.rs](render.rs) - Render the game frame to an RGBA image
-- [screen.rs](screen.rs) - Abstractions over "screens" (intro, level, end, etc.)
-- [stats.rs](stats.rs) - Maintain stats during the game (deaths, playtime, etc.)
-  - [terminal/kitty_graphics.rs](terminal/kitty_graphics.rs) - Helpers to output
+- [args.rs](src/args.rs) - CLI arguments
+- [audio.rs](src/audio.rs) - Audio Engine (music and SFX)
+- [camera.rs](src/camera.rs) - Player-following camera
+- [color.rs](src/color.rs) - Helpers to colorize tiles with custom palettes
+- [input.rs](src/input.rs) - Handle and abstract user input
+- [level.rs](src/level.rs) - Level processing and parsing (levels in [levels/](levels))
+- [main.rs](src/main.rs) - Main entry point and game loop
+- [player.rs](src/player.rs) - The player and its properties
+- [render.rs](src/render.rs) - Render the game frame to an RGBA image
+- [screen.rs](src/screen.rs) - Abstractions over "screens" (intro, level, end, etc.)
+- [stats.rs](src/stats.rs) - Maintain stats during the game (deaths, playtime, etc.)
+  - [terminal/kitty_graphics.rs](src/terminal/kitty_graphics.rs) - Helpers to output
       images to the terminal
-  - [terminal/mod.rs](terminal/mod.rs) - Abstraction over the terminal to handle
+  - [terminal/mod.rs](src/terminal/mod.rs) - Abstraction over the terminal to handle
       ANSI
 
 Performance
@@ -61,10 +61,10 @@ Performance
 
 On my M1 Macbook Pro:
 
-- without `--release`: ~25 FPS
-- with `--release`: comfortably runs at 144fps, can go up to ~500
+- without `--release`: ~25 fps
+- with `--release`: comfortably runs at 144 fps, can go up to ~500 fps
 
-You can test the FPS yourself with:
+You can test the fps yourself with:
 
     cargo run --release -- --fps 30
     cargo run --release -- --fps 60
