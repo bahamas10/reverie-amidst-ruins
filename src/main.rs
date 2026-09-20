@@ -137,6 +137,10 @@ fn main() -> Result<()> {
                 Screen::Level(s) => s.level.palette = palette,
                 Screen::End(s) => s.level.palette = palette,
             };
+            message = Some((
+                "palette randomized".into(),
+                Instant::now() + MESSAGE_DURATION,
+            ));
         }
         input.palette_randomize_pressed = false;
 
@@ -419,8 +423,8 @@ fn main() -> Result<()> {
             }
             Screen::Level(level_screen) => {
                 print!(
-                    "fps = {:.1} | coins = {}",
-                    fps, level_screen.coin_count
+                    "fps {:.1} | coins {} | deaths {}",
+                    fps, level_screen.coin_count, stats.deaths
                 );
                 if !msg.is_empty() {
                     print!(" | {}", msg);
