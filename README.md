@@ -69,7 +69,7 @@ Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
 Performance
 -----------
 
-On my M1 Macbook Pro:
+On my M1 Macbook Pro using iTerm2:
 
 - without `--release`: ~25 fps
 - with `--release`: comfortably runs at 144 fps, can go up to ~500 fps
@@ -79,6 +79,14 @@ You can test the fps yourself with:
     cargo run --release -- --fps 30
     cargo run --release -- --fps 60
     cargo run --release -- --fps 144
+
+Tested Terminals
+----------------
+
+- [iTerm2](https://iterm2.com) on macOS: works perfectly
+- [Ghostty](https://ghostty.org) on macOS: works perfectly
+- [WezTerm](https://wezterm.org) on macOS: works but choppy visuals (FPS is
+    high but the image rendered appears to stutter)
 
 License
 -------
