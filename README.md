@@ -88,6 +88,13 @@ Tested Terminals
 - [WezTerm](https://wezterm.org) on macOS: works but choppy visuals (FPS is
     high but the image rendered appears to stutter)
 
+Screenshots
+-----------
+
+![title](screenshots/title.jpg)
+![level1](screenshots/level1.jpg)
+![level2](screenshots/level2.jpg)
+
 License
 -------
 
