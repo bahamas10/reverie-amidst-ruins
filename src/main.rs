@@ -92,7 +92,7 @@ fn main() -> Result<()> {
 
     // hold this handle so it'll go out of scope and de-init when done
     let mut term_handle = Terminal::init()?;
-    let mut input = input::Input::default();
+    let mut input = input::Input::new();
     let mut screen = Screen::Title(level_screen);
 
     // target FPS
@@ -116,9 +116,7 @@ fn main() -> Result<()> {
 
         // read all pending terminal input
         let events = term_handle.read_events()?;
-        for event in events {
-            input.handle_key(event);
-        }
+        input.update(&events);
 
         if input.effects_toggle_pressed {
             effects_enabled = !effects_enabled;
@@ -128,8 +126,6 @@ fn main() -> Result<()> {
                 Instant::now() + MESSAGE_DURATION,
             ));
         }
-        input.effects_toggle_pressed = false;
-
         if input.palette_randomize_pressed {
             let palette = color::random_palette();
             match &mut screen {
@@ -142,8 +138,6 @@ fn main() -> Result<()> {
                 Instant::now() + MESSAGE_DURATION,
             ));
         }
-        input.palette_randomize_pressed = false;
-
         if input.mute_toggle_pressed {
             let state = if let Some(audio) = &mut audio {
                 if audio.toggle_mute() { "muted" } else { "unmuted" }
@@ -155,8 +149,6 @@ fn main() -> Result<()> {
                 Instant::now() + MESSAGE_DURATION,
             ));
         }
-        input.mute_toggle_pressed = false;
-
         if input.volume_down_pressed || input.volume_up_pressed {
             let num = if input.volume_down_pressed { -5 } else { 5 };
 
@@ -167,16 +159,10 @@ fn main() -> Result<()> {
 
             message = Some((status, Instant::now() + MESSAGE_DURATION));
         }
-        input.volume_down_pressed = false;
-        input.volume_up_pressed = false;
-
         if input.scale_down_pressed || input.scale_up_pressed {
             let num = if input.scale_down_pressed { -1 } else { 1 };
             term_handle.adjust_image_width(num, WIDTH, HEIGHT);
         }
-        input.scale_down_pressed = false;
-        input.scale_up_pressed = false;
-
         let restarted = if input.restart_pressed {
             if let Screen::Level(level_screen) = &mut screen {
                 level_screen.player.reset();
@@ -190,8 +176,6 @@ fn main() -> Result<()> {
         } else {
             false
         };
-        input.restart_pressed = false;
-
         // remove the title and spawn the player into the active level
         if input.confirm_pressed {
             screen = match screen {
@@ -310,9 +294,6 @@ fn main() -> Result<()> {
                 audio.play_effect(SoundEffect::Dead)?;
             }
         }
-        input.jump_pressed = false;
-        input.confirm_pressed = false;
-
         // render the frame
         let mut frame = match &mut screen {
             Screen::Title(level_screen) => {
@@ -379,8 +360,6 @@ fn main() -> Result<()> {
                 Instant::now() + MESSAGE_DURATION,
             ));
         }
-        input.screenshot_pressed = false;
-
         // display the frame
         let placement = term_handle
             .image_placement(frame.width() as usize, frame.height() as usize);

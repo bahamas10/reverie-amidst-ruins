@@ -9,6 +9,7 @@ base64 = "0.22.1"
 clap = { version = "4.6.6", features = ["derive"] }
 crossterm = "0.29"
 flate2 = "1.1"
+gilrs = "0.11.2"
 image = "0.25.10"
 rand = "0.9.5"
 rodio = { version = "0.22", default-features = false, features = ["playback", "vorbis", "wav"] }
