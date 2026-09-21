@@ -14,13 +14,15 @@ pub(super) struct Gamepad {
     active: Option<GamepadId>,
 }
 
-impl Gamepad {
-    pub fn new() -> Self {
+impl Default for Gamepad {
+    fn default() -> Self {
         // gamepad support is option / best-effort so just throw away any init
         // errors and store it as an option
         Self { gilrs: Gilrs::new().ok(), active: None }
     }
+}
 
+impl Gamepad {
     pub fn update(&mut self) -> InputState {
         let mut state = InputState::default();
 

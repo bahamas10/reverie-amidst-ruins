@@ -11,6 +11,7 @@ use keyboard::Keyboard;
 mod gamepad;
 mod keyboard;
 
+#[derive(Default)]
 pub struct Input {
     // is holding / pressed left
     pub left: bool,
@@ -63,11 +64,7 @@ pub struct Input {
 
 impl Input {
     pub fn new() -> Self {
-        Self {
-            keyboard: Keyboard::default(),
-            gamepad: Gamepad::new(),
-            ..Default::default()
-        }
+        Self::default()
     }
 
     pub fn update(&mut self, key_events: &[KeyEvent]) {
@@ -109,12 +106,6 @@ impl Input {
     }
 }
 
-impl Default for Input {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// This object is returned via oll of the input update() methosd
 #[derive(Clone, Copy, Default)]
 struct InputState {
@@ -152,4 +143,3 @@ impl InputState {
         self.scale_up_pressed = false;
     }
 }
-

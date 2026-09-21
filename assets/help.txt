@@ -9,16 +9,16 @@ $(dim)
 ==    $(reset)$(c6)Controls                                       $(reset)$(dim) ==
 ========================================================$(reset)
 
-Movement (Keyboard)
+Movement - Keyboard
 - $(c6)wasd / arrows$(reset) -> Move player
 - $(c6)space bar    $(reset) -> Jump
 - $(c6)r            $(reset) -> Restart level (counts as a death)
 
-Movement (Gamepad)
-- $(c6)d-pad       $(reset) -> Move player
-- $(c6)south button$(reset) -> Jump / Confirm
-- $(c6)start       $(reset) -> Confirm
-- $(c6)west button $(reset) -> Restart level (counts as a death)
+Movement - Gamepad
+- $(c6)d-pad        $(reset) -> Move player
+- $(c6)south button $(reset) -> Jump / Confirm
+- $(c6)start        $(reset) -> Confirm
+- $(c6)west button  $(reset) -> Restart level (counts as a death)
 
 Utility
 - $(c6)num 1        $(reset) -> Toggle post-processing effects
