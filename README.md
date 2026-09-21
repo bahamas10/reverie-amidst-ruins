@@ -92,8 +92,8 @@ Screenshots
 -----------
 
 ![title](screenshots/title.jpg)
-![level1](screenshots/level1.jpg)
 ![level2](screenshots/level2.jpg)
+![level3](screenshots/level3.jpg)
 
 License
 -------
