@@ -16,10 +16,17 @@ code, then clone this repo and run it with:
 Controls
 --------
 
-Movement
+Movement - Keyboard
 - `wasd` / `arrows` -  Move player
 - `space bar` - Jump
+- `enter` - Confirm
 - `r` - Restart level (counts as a death)
+
+Movement - Gamepad
+- `d-pad` - Move player
+- `south button` (`A` / `Cross`) - Jump / confirm
+- `start` - Confirm
+- `west button` (`X` / `Square`) - Restart level (counts as a death)
 
 Utility
 - `num 1` - Toggle post-processing effects
@@ -44,7 +51,10 @@ Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
 - [audio.rs](src/audio.rs) - Audio Engine (music and SFX)
 - [camera.rs](src/camera.rs) - Player-following camera
 - [color.rs](src/color.rs) - Helpers to colorize tiles with custom palettes
-- [input.rs](src/input.rs) - Handle and abstract user input
+- [input/mod.rs](src/input/mod.rs) - Own and combine the available input methods
+  - [input/keyboard.rs](src/input/keyboard.rs) - Handle keyboard input with
+      `crossterm`
+  - [input/gamepad.rs](src/input/gamepad.rs) - Handle gamepad input with `gilrs`
 - [level.rs](src/level.rs) - Level processing and parsing (levels in [levels/](levels))
 - [main.rs](src/main.rs) - Main entry point and game loop
 - [player.rs](src/player.rs) - The player and its properties
