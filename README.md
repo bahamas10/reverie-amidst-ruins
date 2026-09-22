@@ -3,6 +3,8 @@ Reverie Amidst Ruins
 
 A simple 2D platformer game to be played directly in the terminal.
 
+![demo](https://reverie.ysap.sh/reverie-demo.mp4)
+
 How To Play
 -----------
 
