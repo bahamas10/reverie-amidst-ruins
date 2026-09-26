@@ -46,8 +46,8 @@ How Does This Work?
 The concept is surprisingly simple - the game logic itself is handled in Rust to
 update the player, handle collision, coin collecting, etc.  The "frames" are
 then rendered onto an RGBA image completely in memory.  Then, the frame is
-compressed is zlib compressed and then written to the terminal via the [Kitty
-Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
+zlib compressed and then written to the terminal via the [Kitty Graphics
+Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
 
 - [args.rs](src/args.rs) - CLI arguments
 - [audio.rs](src/audio.rs) - Audio Engine (music and SFX)
