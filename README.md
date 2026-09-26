@@ -63,10 +63,10 @@ Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
 - [render.rs](src/render.rs) - Render the game frame to an RGBA image
 - [screen.rs](src/screen.rs) - Abstractions over "screens" (intro, level, end, etc.)
 - [stats.rs](src/stats.rs) - Maintain stats during the game (deaths, playtime, etc.)
-  - [terminal/kitty_graphics.rs](src/terminal/kitty_graphics.rs) - Helpers to output
-      images to the terminal
-  - [terminal/mod.rs](src/terminal/mod.rs) - Abstraction over the terminal to handle
+- [terminal/mod.rs](src/terminal/mod.rs) - Abstraction over the terminal to handle
       ANSI
+  - [terminal/kitty_graphics.rs](src/terminal/kitty_graphics.rs) - Helpers to
+      output images to the terminal
 
 Performance
 -----------
