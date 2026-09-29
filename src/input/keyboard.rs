@@ -56,6 +56,9 @@ impl Keyboard {
                 KeyCode::Char('3') if is_pressed => {
                     self.state.palette_randomize_pressed = true;
                 }
+                KeyCode::Char('4') if is_pressed => {
+                    self.state.debug_toggle_pressed = true;
+                }
                 KeyCode::Char('m') if is_pressed => {
                     self.state.mute_toggle_pressed = true;
                 }

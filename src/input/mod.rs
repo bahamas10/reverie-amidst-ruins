@@ -40,6 +40,9 @@ pub struct Input {
     // just pressed palette randomize
     pub palette_randomize_pressed: bool,
 
+    // just pressed debug toggle
+    pub debug_toggle_pressed: bool,
+
     // just pressed level restart
     pub restart_pressed: bool,
 
@@ -91,6 +94,8 @@ impl Input {
             keyboard.effects_toggle_pressed || gamepad.effects_toggle_pressed;
         self.palette_randomize_pressed = keyboard.palette_randomize_pressed
             || gamepad.palette_randomize_pressed;
+        self.debug_toggle_pressed =
+            keyboard.debug_toggle_pressed || gamepad.debug_toggle_pressed;
         self.restart_pressed =
             keyboard.restart_pressed || gamepad.restart_pressed;
         self.mute_toggle_pressed =
@@ -118,6 +123,7 @@ struct InputState {
     screenshot_pressed: bool,
     effects_toggle_pressed: bool,
     palette_randomize_pressed: bool,
+    debug_toggle_pressed: bool,
     restart_pressed: bool,
     mute_toggle_pressed: bool,
     volume_down_pressed: bool,
@@ -135,6 +141,7 @@ impl InputState {
         self.screenshot_pressed = false;
         self.effects_toggle_pressed = false;
         self.palette_randomize_pressed = false;
+        self.debug_toggle_pressed = false;
         self.restart_pressed = false;
         self.mute_toggle_pressed = false;
         self.volume_down_pressed = false;

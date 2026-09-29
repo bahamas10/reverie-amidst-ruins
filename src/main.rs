@@ -102,6 +102,7 @@ fn main() -> Result<()> {
     // "HUD"
     let mut message = None;
     let mut effects_enabled = true;
+    let mut debug_enabled = args.debug;
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
     let mut fps = 0.0;
@@ -137,6 +138,14 @@ fn main() -> Result<()> {
             };
             message = Some((
                 "palette randomized".into(),
+                Instant::now() + MESSAGE_DURATION,
+            ));
+        }
+        if input.debug_toggle_pressed {
+            debug_enabled = !debug_enabled;
+            let state = if debug_enabled { "on" } else { "off" };
+            message = Some((
+                format!("debug {state}"),
                 Instant::now() + MESSAGE_DURATION,
             ));
         }
@@ -413,7 +422,7 @@ fn main() -> Result<()> {
             Screen::Level(level_screen) => {
                 print!("fps {:.1}", fps);
 
-                if args.debug {
+                if debug_enabled {
                     print!(
                         " | {:.1} KiB/frame | {:.1} KiB/s",
                         frame_kib, kib_per_second

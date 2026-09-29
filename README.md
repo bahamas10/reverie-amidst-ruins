@@ -34,6 +34,7 @@ Utility
 - `num 1` - Toggle post-processing effects
 - `num 2` - Save screenshot to current directory
 - `num 3` - Randomize level color palette
+- `num 4` - Toggle debug statistics
 - `num 8` - Lower master volume by 5%
 - `num 9` - Raise master volume by 5%
 - `m` - Mute audio
