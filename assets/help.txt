@@ -36,6 +36,7 @@ $(dim)
 ========================================================$(reset)
 
   $(c6)--fps <num>       $(reset)FPS to target, defaults to 60
+  $(c6)--debug           $(reset)Show frame bandwidth statistics
   $(c6)--level <num>     $(reset)Level to start on, defaults to 1
   $(c6)--no-audio        $(reset)Disable audio completely
   $(c6)--volume <0-100>  $(reset)Master volume, defaults to 100

@@ -105,6 +105,8 @@ fn main() -> Result<()> {
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
     let mut fps = 0.0;
+    let mut bytes_this_second = 0;
+    let mut kib_per_second = 0.0;
 
     // game loop
     let mut last_time = Instant::now();
@@ -360,15 +362,18 @@ fn main() -> Result<()> {
                 Instant::now() + MESSAGE_DURATION,
             ));
         }
+
         // display the frame
         let placement = term_handle
             .image_placement(frame.width() as usize, frame.height() as usize);
-        terminal::kitty_graphics::display_rgba(
+        let frame_bytes = terminal::kitty_graphics::display_rgba(
             frame.as_raw(),
             frame.width() as usize,
             frame.height() as usize,
             placement,
         )?;
+        let frame_kib = frame_bytes as f64 / 1024.0;
+        bytes_this_second += frame_bytes;
 
         // format "HUD" - by which i mean the line of text we `print!` lmao
 
@@ -376,8 +381,13 @@ fn main() -> Result<()> {
         fps_frame_count += 1;
         if fps_timer.elapsed() >= Duration::from_secs(1) {
             // calculate the FPS every second
-            fps = fps_frame_count as f64 / fps_timer.elapsed().as_secs_f64();
+            let elapsed = fps_timer.elapsed().as_secs_f64();
+            fps = fps_frame_count as f64 / elapsed;
+            kib_per_second = bytes_this_second as f64 / 1024.0 / elapsed;
+
             fps_frame_count = 0;
+            bytes_this_second = 0;
+
             fps_timer = Instant::now();
         }
 
@@ -401,13 +411,24 @@ fn main() -> Result<()> {
                 print!("\x1b[K\r");
             }
             Screen::Level(level_screen) => {
+                print!("fps {:.1}", fps);
+
+                if args.debug {
+                    print!(
+                        " | {:.1} KiB/frame | {:.1} KiB/s",
+                        frame_kib, kib_per_second
+                    );
+                }
+
                 print!(
-                    "fps {:.1} | coins {} | deaths {}",
-                    fps, level_screen.coin_count, stats.deaths
+                    " | coins {} | deaths {}",
+                    level_screen.coin_count, stats.deaths
                 );
+
                 if !msg.is_empty() {
                     print!(" | {}", msg);
                 }
+
                 print!("\x1b[K\r");
             }
         }

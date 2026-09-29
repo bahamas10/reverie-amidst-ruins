@@ -81,6 +81,7 @@ You can test the fps yourself with:
     cargo run --release -- --fps 30
     cargo run --release -- --fps 60
     cargo run --release -- --fps 144
+    cargo run --release -- --fps 144 --debug
 
 Tested Terminals
 ----------------

@@ -6,6 +6,10 @@ use clap::Parser;
 
 )]
 pub struct Cli {
+    /// Show debug frame bandwidth statistics
+    #[arg(long)]
+    pub debug: bool,
+
     /// Disable audio playback completely
     #[arg(long)]
     pub no_audio: bool,

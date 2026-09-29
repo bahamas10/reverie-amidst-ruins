@@ -5,7 +5,7 @@
  * Based on https://sw.kovidgoyal.net/kitty/graphics-protocol/
  */
 
-use std::io::Write;
+use std::io::{self, Write};
 
 use anyhow::Result;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -20,21 +20,48 @@ pub const MAX_PAYLOAD_SIZE: usize = 4096;
 pub const IMAGE_ID: u32 = 1;
 pub const PLACEMENT_ID: u32 = 1;
 
+/**
+ * Wrap a writer and count all of the data that goes through it.
+ */
+struct CountingWriter<W> {
+    inner: W,
+    bytes_written: usize,
+}
+
+impl<W> CountingWriter<W> {
+    fn new(inner: W) -> Self {
+        Self { inner, bytes_written: 0 }
+    }
+}
+
+impl<W: Write> Write for CountingWriter<W> {
+    fn write(&mut self, data: &[u8]) -> io::Result<usize> {
+        let written = self.inner.write(data)?;
+        self.bytes_written += written;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
 /// Displays raw RGBA pixels at the requested terminal placement
 pub fn display_rgba(
     data: &[u8],
     width: usize,
     height: usize,
     placement: ImagePlacement,
-) -> Result<()> {
-    let mut stdout = std::io::stdout().lock();
+) -> Result<usize> {
+    let stdout = std::io::stdout().lock();
+    let mut output = CountingWriter::new(stdout);
 
-    execute!(stdout, cursor::MoveTo(placement.column, placement.row))?;
-    write_rgba(&mut stdout, data, width, height, placement)?;
+    execute!(output, cursor::MoveTo(placement.column, placement.row))?;
+    write_rgba(&mut output, data, width, height, placement)?;
 
-    stdout.flush()?;
+    output.flush()?;
 
-    Ok(())
+    Ok(output.bytes_written)
 }
 
 fn write_rgba(
