@@ -143,11 +143,6 @@ fn main() -> Result<()> {
         }
         if input.debug_toggle_pressed {
             debug_enabled = !debug_enabled;
-            let state = if debug_enabled { "on" } else { "off" };
-            message = Some((
-                format!("debug {state}"),
-                Instant::now() + MESSAGE_DURATION,
-            ));
         }
         if input.mute_toggle_pressed {
             let state = if let Some(audio) = &mut audio {
