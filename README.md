@@ -15,6 +15,10 @@ code, then clone this repo and run it with:
     cd reverie-amidst-ruins
     cargo run --release
 
+On Linux you may need to install:
+
+    sudo apt-get install libasound2-dev libudev-dev pkg-config
+
 Controls
 --------
 
