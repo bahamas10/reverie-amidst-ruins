@@ -1,12 +1,12 @@
 
 
-             [36mReverie Amidst Ruins[0m
+                 [36mReverie Amidst Ruins[0m
 
-         [2ma game by @yousuckatprogramming[0m
+             [2ma game by @yousuckatprogramming[0m
 
 [2m
 ========================================================
-==    [0m[36mInstallation                                   [0m[2m ==
+==                   [0m[36mInstallation                    [0m[2m ==
 ========================================================[0m
 
 Ensure Rust is installed and run:
