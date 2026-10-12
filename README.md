@@ -91,8 +91,9 @@ You can test the fps yourself with:
 Tested Terminals
 ----------------
 
-- [iTerm2](https://iterm2.com) on macOS: works perfectly
 - [Ghostty](https://ghostty.org) on macOS: works perfectly
+- [Kitty](https://sw.kovidgoyal.net/kitty/) on macOS: works perfectly
+- [iTerm2](https://iterm2.com) on macOS: works perfectly
 - [WezTerm](https://wezterm.org) on macOS: works but choppy visuals (FPS is
     high but the image rendered appears to stutter)
 
