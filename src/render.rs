@@ -10,8 +10,9 @@ use image::{RgbaImage, imageops};
 use crate::camera::Camera;
 use crate::color::{Color, Palette};
 use crate::debug::Overlays;
-use crate::level::{LevelDefinition, TILE_SIZE};
+use crate::level::{LevelDefinition, SPRING_HEIGHT, Spike, TILE_SIZE};
 use crate::player::{HITBOX_HEIGHT, HITBOX_WIDTH, Player};
+use crate::screen::LevelScreen;
 
 // animations
 const COIN_ANIMATION_NUM: f32 = 7.0; // rotations per second
@@ -41,6 +42,21 @@ const GROUND_TOP: (usize, usize) = (16, 0);
 const COIN_FRAMES: [(usize, usize); 4] = [(32, 0), (48, 0), (64, 0), (48, 0)];
 const PLAYER: (usize, usize) = (80, 0);
 const GOAL: (usize, usize) = (96, 0);
+const SPRING: (usize, usize) = (112, 0);
+const JUMPTHRU_LEFT: (usize, usize) = (192, 0);
+const JUMPTHRU: (usize, usize) = (208, 0);
+const JUMPTHRU_RIGHT: (usize, usize) = (224, 0);
+const SPIKE_UP: (usize, usize) = (240, 0);
+const SPIKE_DOWN: (usize, usize) = (256, 0);
+const SPIKE_RIGHT: (usize, usize) = (272, 0);
+const SPIKE_LEFT: (usize, usize) = (288, 0);
+
+// how tall the jump thru plank looks (only the top edge is solid)
+const JUMPTHRU_HEIGHT: i32 = 5;
+
+// spring shoots up then goes back down in steps, (frame, seconds)
+const SPRING_FRAMES: [((usize, usize), f32); 4] =
+    [((128, 0), 0.08), ((144, 0), 0.05), ((160, 0), 0.05), ((176, 0), 0.05)];
 
 // images
 const BACKGROUND_STORM: &[u8] =
@@ -119,14 +135,15 @@ pub fn post_process(frame: &mut RgbaImage) {
 
 // convert the level to an image
 pub fn level(
-    level: &LevelDefinition,
+    screen: &LevelScreen,
     player: Option<&Player>,
-    camera: &Camera,
-    coins: &[(usize, usize)],
-    elapsed: f32,
     width: u32,
     height: u32,
 ) -> Result<RgbaImage> {
+    let (level, camera) = (&screen.level, &screen.camera);
+    let (coins, springs) = (&screen.remaining_coins, &screen.springs);
+    let elapsed = screen.elapsed;
+
     // load the background and get it ready to parallax
     let background_data = match level.background.as_str() {
         "snow" => BACKGROUND_SNOW,
@@ -194,6 +211,50 @@ pub fn level(
         }
     }
 
+    // jump thrus get end caps, same idea as the ground tops
+    for (y, row) in level.jumpthrus.iter().enumerate() {
+        for x in (0..row.len()).filter(|&x| row[x]) {
+            let left = x > 0 && row[x - 1];
+            let right = row.get(x + 1) == Some(&true);
+            let tile = match (left, right) {
+                (false, true) => JUMPTHRU_LEFT,
+                (true, false) => JUMPTHRU_RIGHT,
+                _ => JUMPTHRU,
+            };
+            sprite(
+                &mut frame,
+                &tileset,
+                tile,
+                camera.world_to_screen(
+                    (x * TILE_SIZE) as f32,
+                    (y * TILE_SIZE) as f32,
+                ),
+                &level.palette,
+                false,
+            );
+        }
+    }
+
+    for &((x, y), spike) in &level.spikes {
+        let tile = match spike {
+            Spike::Up => SPIKE_UP,
+            Spike::Down => SPIKE_DOWN,
+            Spike::Right => SPIKE_RIGHT,
+            Spike::Left => SPIKE_LEFT,
+        };
+        sprite(
+            &mut frame,
+            &tileset,
+            tile,
+            camera.world_to_screen(
+                (x * TILE_SIZE) as f32,
+                (y * TILE_SIZE) as f32,
+            ),
+            &level.palette,
+            false,
+        );
+    }
+
     // loop through the coin sprites and animate them
     let coin = COIN_FRAMES
         [(elapsed * COIN_ANIMATION_NUM) as usize % COIN_FRAMES.len()];
@@ -202,6 +263,20 @@ pub fn level(
             &mut frame,
             &tileset,
             coin,
+            camera.world_to_screen(
+                (x * TILE_SIZE) as f32,
+                (y * TILE_SIZE) as f32,
+            ),
+            &level.palette,
+            false,
+        );
+    }
+
+    for (&(x, y), &since) in level.springs.iter().zip(springs) {
+        sprite(
+            &mut frame,
+            &tileset,
+            spring_frame(since),
             camera.world_to_screen(
                 (x * TILE_SIZE) as f32,
                 (y * TILE_SIZE) as f32,
@@ -242,6 +317,16 @@ pub fn level(
     Ok(frame)
 }
 
+fn spring_frame(mut since: f32) -> (usize, usize) {
+    for (frame, time) in SPRING_FRAMES {
+        if since < time {
+            return frame;
+        }
+        since -= time;
+    }
+    SPRING
+}
+
 // debug hitboxes on top of the level
 pub fn hitboxes(
     frame: &mut RgbaImage,
@@ -262,12 +347,39 @@ pub fn hitboxes(
                 hitbox(frame, at((x, y)), tile, HITBOX_BLOCK);
             }
         }
+        for (y, row) in level.jumpthrus.iter().enumerate() {
+            for x in (0..row.len()).filter(|&x| row[x]) {
+                let size = (tile.0, JUMPTHRU_HEIGHT);
+                hitbox(frame, at((x, y)), size, HITBOX_BLOCK);
+            }
+        }
     }
 
     // coins and the goal use the whole tile
     if overlays.entities {
         for &coin in coins.iter().chain(&level.goal) {
             hitbox(frame, at(coin), tile, HITBOX_ENTITY);
+        }
+    }
+
+    if overlays.entities {
+        let top = (TILE_SIZE - SPRING_HEIGHT) as i32;
+        for &spring in &level.springs {
+            let (x, y) = at(spring);
+            hitbox(
+                frame,
+                (x, y + top),
+                (tile.0, SPRING_HEIGHT as i32),
+                HITBOX_ENTITY,
+            );
+        }
+    }
+
+    if overlays.entities {
+        for &(spike_at, spike) in &level.spikes {
+            let ((x, y), (sx, sy, w, h)) = (at(spike_at), spike.hitbox());
+            let size = (w as i32, h as i32);
+            hitbox(frame, (x + sx as i32, y + sy as i32), size, HITBOX_ENTITY);
         }
     }
 

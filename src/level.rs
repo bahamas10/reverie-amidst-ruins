@@ -10,6 +10,43 @@ use crate::color::Palette;
 
 pub const TILE_SIZE: usize = 16;
 
+pub const SPRING_HEIGHT: usize = 5;
+
+// only the base of the spikes hurts, grazing the tips is fine
+pub const SPIKE_HEIGHT: usize = 4;
+
+// which way the spikes point, figured out from what they're stuck to
+#[derive(Debug, Clone, Copy)]
+pub enum Spike {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl Spike {
+    // (x, y, width, height) inside the tile
+    pub fn hitbox(self) -> (usize, usize, usize, usize) {
+        let (t, h) = (TILE_SIZE, SPIKE_HEIGHT);
+        match self {
+            Spike::Up => (0, t - h, t, h),
+            Spike::Down => (0, 0, t, h),
+            Spike::Right => (0, 0, h, t),
+            Spike::Left => (t - h, 0, h, t),
+        }
+    }
+
+    // celeste reference ig (doesnt kill you when you're moving in their direction)
+    pub fn kills(self, vx: f32, vy: f32) -> bool {
+        match self {
+            Spike::Up => vy >= 0.0,
+            Spike::Down => vy <= 0.0,
+            Spike::Right => vx <= 0.0,
+            Spike::Left => vx >= 0.0,
+        }
+    }
+}
+
 #[derive(Debug)]
 #[allow(unused)]
 pub struct LevelDefinition {
@@ -22,7 +59,10 @@ pub struct LevelDefinition {
     pub spawn: (usize, usize),
     pub goal: Option<(usize, usize)>,
     pub blocks: Vec<Vec<bool>>,
+    pub jumpthrus: Vec<Vec<bool>>,
     pub coins: Vec<(usize, usize)>,
+    pub springs: Vec<(usize, usize)>,
+    pub spikes: Vec<((usize, usize), Spike)>,
 }
 
 impl LevelDefinition {
@@ -53,7 +93,10 @@ impl LevelDefinition {
         let palette = parse_palette(metadata["palette"])?;
 
         let mut blocks: Vec<Vec<bool>> = Vec::new();
+        let mut jumpthrus = Vec::new();
         let mut coins = Vec::new();
+        let mut springs = Vec::new();
+        let mut spikes = Vec::new();
         let mut spawn = None;
         let mut goal = None;
 
@@ -61,8 +104,10 @@ impl LevelDefinition {
         for (_, line) in lines {
             // loop each tile
             let mut row = Vec::new();
+            let mut jumpthru_row = Vec::new();
             for (column, tile) in line.chars().enumerate() {
                 let position = (column, blocks.len());
+                jumpthru_row.push(tile == '-');
 
                 // return true for collider, false for no collision
                 row.push(match tile {
@@ -73,6 +118,20 @@ impl LevelDefinition {
                     'C' => {
                         // C for coin lol
                         coins.push(position);
+                        false
+                    }
+                    '-' => {
+                        // jump thru, only solid from above (player handles it)
+                        false
+                    }
+                    '^' => {
+                        // boing
+                        springs.push(position);
+                        false
+                    }
+                    'X' => {
+                        // spikes
+                        spikes.push(position);
                         false
                     }
                     'S' => {
@@ -99,10 +158,33 @@ impl LevelDefinition {
             }
 
             blocks.push(row);
+            jumpthrus.push(jumpthru_row);
         }
 
         let (width, height) = (blocks[0].len(), blocks.len());
         let spawn = spawn.context("no spawn found")?;
+
+        // point spikes away from the block they're on
+        let solid = |x: usize, y: usize| {
+            blocks.get(y).and_then(|row| row.get(x)).copied().unwrap_or(false)
+        };
+        let spikes = spikes
+            .into_iter()
+            .map(|(x, y)| {
+                let spike = if solid(x, y + 1) {
+                    Spike::Up
+                } else if y > 0 && solid(x, y - 1) {
+                    Spike::Down
+                } else if x > 0 && solid(x - 1, y) {
+                    Spike::Right
+                } else if solid(x + 1, y) {
+                    Spike::Left
+                } else {
+                    Spike::Up
+                };
+                ((x, y), spike)
+            })
+            .collect();
 
         Ok(Self {
             name,
@@ -114,7 +196,10 @@ impl LevelDefinition {
             spawn,
             goal,
             blocks,
+            jumpthrus,
             coins,
+            springs,
+            spikes,
         })
     }
 }

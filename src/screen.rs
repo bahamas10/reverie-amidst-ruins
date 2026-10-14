@@ -22,6 +22,7 @@ pub struct LevelScreen {
     pub player: Player,
     pub camera: Camera,
     pub remaining_coins: Vec<(usize, usize)>,
+    pub springs: Vec<f32>,
     pub coin_count: usize,
     pub elapsed: f32,
 }
@@ -34,6 +35,7 @@ impl LevelScreen {
             (level.spawn.1 * TILE_SIZE) as f32,
         );
         let remaining_coins = level.coins.clone();
+        let springs = vec![f32::INFINITY; level.springs.len()];
 
         Ok(Self {
             index,
@@ -41,6 +43,7 @@ impl LevelScreen {
             player,
             camera: Camera::default(),
             remaining_coins,
+            springs,
             coin_count: 0,
             elapsed: 0.0,
         })

@@ -276,13 +276,45 @@ fn main() -> Result<()> {
                     &input,
                     delta.as_secs_f32(),
                     &level.blocks,
+                    &level.jumpthrus,
                     level_width - player::HITBOX_WIDTH,
                 );
                 jumped = player_update.jumped;
 
-                // death: reset after falling below the level
+                // springs launch you if you touch them while not going up
+                // (or jumping on them this frame)
+                let springs =
+                    level.springs.iter().zip(&mut level_screen.springs);
+                for (&(x, y), since) in springs {
+                    *since += delta.as_secs_f32();
+                    let touching = player.overlaps(
+                        (x * level::TILE_SIZE) as f32,
+                        ((y + 1) * level::TILE_SIZE - level::SPRING_HEIGHT)
+                            as f32,
+                        level::TILE_SIZE as f32,
+                        level::SPRING_HEIGHT as f32,
+                    );
+                    if touching && (player.vy >= 0.0 || jumped) {
+                        player.bounce();
+                        *since = 0.0;
+                        jumped = true;
+                    }
+                }
+
+                let spiked = level.spikes.iter().any(|&((x, y), spike)| {
+                    let (sx, sy, w, h) = spike.hitbox();
+                    spike.kills(player.vx, player.vy)
+                        && player.overlaps(
+                            (x * level::TILE_SIZE + sx) as f32,
+                            (y * level::TILE_SIZE + sy) as f32,
+                            w as f32,
+                            h as f32,
+                        )
+                });
+
+                // death: reset after falling below the level or hitting spikes
                 let level_height = (level.height * level::TILE_SIZE) as f32;
-                if player.y > level_height + DEATH_PLANE {
+                if player.y > level_height + DEATH_PLANE || spiked {
                     player.reset();
                     level_screen.remaining_coins = level.coins.clone();
                     level_screen.coin_count = 0;
@@ -365,11 +397,8 @@ fn main() -> Result<()> {
         let mut frame = match &mut screen {
             Screen::Title(level_screen) => {
                 let mut frame = render::level(
-                    &level_screen.level,
+                    level_screen,
                     None,
-                    &level_screen.camera,
-                    &level_screen.remaining_coins,
-                    level_screen.elapsed,
                     WIDTH as u32,
                     HEIGHT as u32,
                 )
@@ -379,11 +408,8 @@ fn main() -> Result<()> {
             }
             Screen::Level(level_screen) => {
                 let mut frame = render::level(
-                    &level_screen.level,
+                    level_screen,
                     Some(&level_screen.player),
-                    &level_screen.camera,
-                    &level_screen.remaining_coins,
-                    level_screen.elapsed,
                     WIDTH as u32,
                     HEIGHT as u32,
                 )
@@ -400,11 +426,8 @@ fn main() -> Result<()> {
             }
             Screen::End(level_screen) => {
                 let mut frame = render::level(
-                    &level_screen.level,
+                    level_screen,
                     None,
-                    &level_screen.camera,
-                    &level_screen.remaining_coins,
-                    level_screen.elapsed,
                     WIDTH as u32,
                     HEIGHT as u32,
                 )
