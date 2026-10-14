@@ -7,12 +7,11 @@
 use anyhow::{Context, Result, bail};
 use image::{RgbaImage, imageops};
 
-use crate::camera::Camera;
 use crate::color::{Color, Palette};
 use crate::debug::Overlays;
-use crate::level::{LevelDefinition, SPRING_HEIGHT, Spike, TILE_SIZE};
+use crate::level::{SPRING_HEIGHT, Spike, TILE_SIZE};
 use crate::player::{HITBOX_HEIGHT, HITBOX_WIDTH, Player};
-use crate::screen::LevelScreen;
+use crate::screen::{Crumble, LevelScreen};
 
 // animations
 const COIN_ANIMATION_NUM: f32 = 7.0; // rotations per second
@@ -50,6 +49,7 @@ const SPIKE_UP: (usize, usize) = (240, 0);
 const SPIKE_DOWN: (usize, usize) = (256, 0);
 const SPIKE_RIGHT: (usize, usize) = (272, 0);
 const SPIKE_LEFT: (usize, usize) = (288, 0);
+const CRUMBLE: (usize, usize) = (304, 0);
 
 // how tall the jump thru plank looks (only the top edge is solid)
 const JUMPTHRU_HEIGHT: i32 = 5;
@@ -235,6 +235,45 @@ pub fn level(
         }
     }
 
+    // crumble blocks wiggle while shaking, gone ones aren't drawn
+    for (&(x, y), crumble) in level.crumbles.iter().zip(&screen.crumbles) {
+        let shake = match crumble {
+            Crumble::Intact => 0,
+            Crumble::Shaking(time) => (time * 60.0) as i32 % 3 - 1,
+            Crumble::Gone(_) => continue,
+        };
+        let (sx, sy) = camera
+            .world_to_screen((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32);
+        sprite(
+            &mut frame,
+            &tileset,
+            CRUMBLE,
+            (sx + shake, sy),
+            &level.palette,
+            false,
+        );
+    }
+
+    // moving platforms use the jump thru planks
+    for mover in &level.movers {
+        let (mx, my) = mover.position(screen.mover_time);
+        for i in 0..mover.width {
+            let tile = match (i == 0, i + 1 == mover.width) {
+                (true, false) => JUMPTHRU_LEFT,
+                (false, true) => JUMPTHRU_RIGHT,
+                _ => JUMPTHRU,
+            };
+            sprite(
+                &mut frame,
+                &tileset,
+                tile,
+                camera.world_to_screen(mx + (i * TILE_SIZE) as f32, my),
+                &level.palette,
+                false,
+            );
+        }
+    }
+
     for &((x, y), spike) in &level.spikes {
         let tile = match spike {
             Spike::Up => SPIKE_UP,
@@ -330,19 +369,20 @@ fn spring_frame(mut since: f32) -> (usize, usize) {
 // debug hitboxes on top of the level
 pub fn hitboxes(
     frame: &mut RgbaImage,
-    level: &LevelDefinition,
-    player: &Player,
-    camera: &Camera,
-    coins: &[(usize, usize)],
+    screen: &LevelScreen,
     overlays: &Overlays,
 ) {
+    let (level, player, camera) =
+        (&screen.level, &screen.player, &screen.camera);
+    let coins = &screen.remaining_coins;
     let tile = (TILE_SIZE as i32, TILE_SIZE as i32);
     let at = |(x, y): (usize, usize)| {
         camera.world_to_screen((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32)
     };
 
+    // solid includes crumble blocks that are still there
     if overlays.blocks {
-        for (y, row) in level.blocks.iter().enumerate() {
+        for (y, row) in screen.solid.iter().enumerate() {
             for x in (0..row.len()).filter(|&x| row[x]) {
                 hitbox(frame, at((x, y)), tile, HITBOX_BLOCK);
             }
@@ -352,6 +392,11 @@ pub fn hitboxes(
                 let size = (tile.0, JUMPTHRU_HEIGHT);
                 hitbox(frame, at((x, y)), size, HITBOX_BLOCK);
             }
+        }
+        for mover in &level.movers {
+            let (mx, my) = mover.position(screen.mover_time);
+            let size = ((mover.width * TILE_SIZE) as i32, JUMPTHRU_HEIGHT);
+            hitbox(frame, camera.world_to_screen(mx, my), size, HITBOX_BLOCK);
         }
     }
 

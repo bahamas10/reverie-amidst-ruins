@@ -48,6 +48,8 @@ pub struct Player {
     pub coyote_timer: f32,
     pub jump_buffer: f32,
     pub springing: bool,
+    // which moving platform we're standing on
+    pub riding: Option<usize>,
     pub facing: PlayerFacing,
     pub spawn_x: f32,
     pub spawn_y: f32,
@@ -64,6 +66,7 @@ impl Player {
             coyote_timer: 0.0,
             jump_buffer: 0.0,
             springing: false,
+            riding: None,
             facing: PlayerFacing::Right,
             spawn_x: x,
             spawn_y: y,
@@ -79,6 +82,17 @@ impl Player {
         self.coyote_timer = 0.0;
         self.jump_buffer = 0.0;
         self.springing = false;
+        self.riding = None;
+    }
+
+    // moved along by the platform
+    pub fn carry(&mut self, dx: f32, dy: f32, blocks: &[Vec<bool>]) {
+        if !hits_solid(self.x + dx, self.y, blocks) {
+            self.x += dx;
+        }
+        if !hits_solid(self.x, self.y + dy, blocks) {
+            self.y += dy;
+        }
     }
 
     // launched by a spring, letting go of jump doesn't cut it short
@@ -102,6 +116,7 @@ impl Player {
         delta: f32,
         blocks: &[Vec<bool>],
         jumpthrus: &[Vec<bool>],
+        platforms: &[(f32, f32, f32, f32)],
         max_x: f32,
     ) -> PlayerUpdate {
         let direction = match (input.left, input.right) {
@@ -144,7 +159,8 @@ impl Player {
         // handle vertical movement
         self.vy = (self.vy + GRAVITY * delta).min(MAX_FALL_SPEED);
         self.grounded = false;
-        self.move_y(self.vy * delta, blocks, jumpthrus);
+        self.riding = None;
+        self.move_y(self.vy * delta, blocks, jumpthrus, platforms);
 
         // refill coyote time while grounded, drain it while in air
         self.coyote_timer = if self.grounded { COYOTE_TIME } else { (self.coyote_timer - delta).max(0.0) };
@@ -173,6 +189,7 @@ impl Player {
         amount: f32,
         blocks: &[Vec<bool>],
         jumpthrus: &[Vec<bool>],
+        platforms: &[(f32, f32, f32, f32)],
     ) {
         self.y += amount;
 
@@ -199,13 +216,27 @@ impl Player {
             return;
         }
 
+        let bottom = self.y + HITBOX_HEIGHT;
+        let before = bottom - amount;
+
+        // moving platforms
+        for (i, &(px, py, width, dy)) in platforms.iter().enumerate() {
+            let over = self.x < px + width && self.x + HITBOX_WIDTH > px;
+            let was = py - dy.min(0.0);
+            if over && amount >= 0.0 && before <= was && py < bottom {
+                self.y = py - HITBOX_HEIGHT - 0.01;
+                self.grounded = true;
+                self.vy = 0.0;
+                self.riding = Some(i);
+                return;
+            }
+        }
+
         // jump thrus only catch you falling onto them, so you have to have
         // been above the top edge last frame (like celeste)
         if amount <= 0.0 {
             return;
         }
-        let bottom = self.y + HITBOX_HEIGHT;
-        let before = bottom - amount;
         let left = (self.x / TILE_SIZE_F32).floor() as usize;
         let right = ((self.x + HITBOX_WIDTH - 0.01) / TILE_SIZE_F32) as usize;
         let first = (before / TILE_SIZE_F32).ceil() as usize;

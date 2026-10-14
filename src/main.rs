@@ -30,7 +30,7 @@ mod terminal;
 
 use audio::SoundEffect;
 use debug::DebugMenu;
-use screen::{LevelScreen, Screen};
+use screen::{Crumble, LevelScreen, Screen};
 use stats::Stats;
 use terminal::Terminal;
 
@@ -50,6 +50,10 @@ const HEIGHT: usize = 270;
 
 // number of pixels below the floor of the level where a death is considered
 const DEATH_PLANE: f32 = 70.0;
+
+// crumble blocks shake this long, then come back after this long
+const CRUMBLE_SHAKE: f32 = 0.4;
+const CRUMBLE_RESPAWN: f32 = 2.0;
 
 // how long a message should stay on screen
 const MESSAGE_DURATION: Duration = Duration::from_secs(3);
@@ -271,15 +275,66 @@ fn main() -> Result<()> {
                 let player = &mut level_screen.player;
 
                 let level_width = (level.width * level::TILE_SIZE) as f32;
+                let dt = delta.as_secs_f32();
+
+                // moving platforms, take the player along if they're on one
+                let before: Vec<_> = level
+                    .movers
+                    .iter()
+                    .map(|m| m.position(level_screen.mover_time))
+                    .collect();
+                level_screen.mover_time += dt;
+                let platforms: Vec<_> = level
+                    .movers
+                    .iter()
+                    .zip(&before)
+                    .map(|(m, &(_, old_y))| {
+                        let (x, y) = m.position(level_screen.mover_time);
+                        (x, y, (m.width * level::TILE_SIZE) as f32, y - old_y)
+                    })
+                    .collect();
+                if let Some(i) = player.riding {
+                    let dx = platforms[i].0 - before[i].0;
+                    player.carry(dx, platforms[i].3, &level_screen.solid);
+                }
 
                 let player_update = player.update(
                     &input,
-                    delta.as_secs_f32(),
-                    &level.blocks,
+                    dt,
+                    &level_screen.solid,
                     &level.jumpthrus,
+                    &platforms,
                     level_width - player::HITBOX_WIDTH,
                 );
                 jumped = player_update.jumped;
+
+                // crumble blocks shake when you stand on them, break, then
+                // come back (not while you're inside them though)
+                let crumbles =
+                    level.crumbles.iter().zip(&mut level_screen.crumbles);
+                for (&(x, y), crumble) in crumbles {
+                    let size = level::TILE_SIZE as f32;
+                    let (tx, ty) = (x as f32 * size, y as f32 * size);
+                    let standing = player.grounded
+                        && player.overlaps(tx, ty - 1.0, size, 1.0);
+                    let inside = player.overlaps(tx, ty, size, size);
+                    *crumble = match *crumble {
+                        Crumble::Intact if standing => Crumble::Shaking(0.0),
+                        Crumble::Shaking(time) if time >= CRUMBLE_SHAKE => {
+                            level_screen.solid[y][x] = false;
+                            Crumble::Gone(0.0)
+                        }
+                        Crumble::Shaking(time) => Crumble::Shaking(time + dt),
+                        Crumble::Gone(time)
+                            if time >= CRUMBLE_RESPAWN && !inside =>
+                        {
+                            level_screen.solid[y][x] = true;
+                            Crumble::Intact
+                        }
+                        Crumble::Gone(time) => Crumble::Gone(time + dt),
+                        crumble => crumble,
+                    };
+                }
 
                 // springs launch you if you touch them while not going up
                 // (or jumping on them this frame)
@@ -369,6 +424,10 @@ fn main() -> Result<()> {
             }
         }
 
+        if died && let Screen::Level(level_screen) = &mut screen {
+            level_screen.reset_crumbles();
+        }
+
         if let Some(index) = next_level {
             let level_screen = load_level(index)?;
             if let Some(audio) = &audio {
@@ -416,10 +475,7 @@ fn main() -> Result<()> {
                 .context("could not render level")?;
                 render::hitboxes(
                     &mut frame,
-                    &level_screen.level,
-                    &level_screen.player,
-                    &level_screen.camera,
-                    &level_screen.remaining_coins,
+                    level_screen,
                     &debug_menu.overlays,
                 );
                 frame
