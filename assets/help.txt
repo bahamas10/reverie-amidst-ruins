@@ -47,7 +47,8 @@ $(dim)
 ==    $(reset)$(c6)Credits                                        $(reset)$(dim) ==
 ========================================================$(reset)
 
-All code, music, assets, etc. done by $(c2)Dave Eddy$(reset).
+Almost all code, music, assets, etc. done by $(c2)Dave Eddy$(reset).
+$(c2)@sioworker$(reset) modified: $(bold)39'119$(reset) characters of code, $(bold)4'976$(reset) characters of level data and $(bold)1'294$(reset) pixels.
 
 The Game Itself
  - Language       $(c6)Rust$(reset)
