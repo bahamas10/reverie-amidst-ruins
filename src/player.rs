@@ -14,6 +14,7 @@ const JUMP_RELEASE_SPEED: f32 = 100.0;
 const MAX_FALL_SPEED: f32 = 450.0;
 const SPRING_SPEED: f32 = 420.0; // ~7 tiles high
 const COYOTE_TIME: f32 = 0.1; // behaves the same at any fps (uses timers), ~6 frames at 60fps
+const JUMP_BUFFER: f32 = 0.1; // pressing jump a bit before landing still jumps
 const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
 pub const HITBOX_WIDTH: f32 = 12.0;
 pub const HITBOX_HEIGHT: f32 = 15.0;
@@ -44,6 +45,7 @@ pub struct Player {
     pub vx: f32,
     pub grounded: bool,
     pub coyote_timer: f32,
+    pub jump_buffer: f32,
     pub springing: bool,
     pub facing: PlayerFacing,
     pub spawn_x: f32,
@@ -59,6 +61,7 @@ impl Player {
             vx: 0.0,
             grounded: false,
             coyote_timer: 0.0,
+            jump_buffer: 0.0,
             springing: false,
             facing: PlayerFacing::Right,
             spawn_x: x,
@@ -73,6 +76,7 @@ impl Player {
         self.vy = 0.0;
         self.grounded = false;
         self.coyote_timer = 0.0;
+        self.jump_buffer = 0.0;
         self.springing = false;
     }
 
@@ -118,12 +122,16 @@ impl Player {
         self.vx = approach(self.vx, target_speed, acceleration * delta);
         self.move_x(self.vx * delta, blocks, max_x);
 
-        // handle jump & coyote
-        let jumped = input.jump_pressed && self.coyote_timer > 0.0;
+        // handle jump, coyote & buffer
+        if input.jump_pressed {
+            self.jump_buffer = JUMP_BUFFER;
+        }
+        let jumped = self.jump_buffer > 0.0 && self.coyote_timer > 0.0;
         if jumped {
             self.vy = -JUMP_SPEED;
             self.grounded = false;
             self.coyote_timer = 0.0;
+            self.jump_buffer = 0.0;
         }
 
         // releasing jump early cuts the remaining upward speed
@@ -139,6 +147,7 @@ impl Player {
 
         // refill coyote time while grounded, drain it while in air
         self.coyote_timer = if self.grounded { COYOTE_TIME } else { (self.coyote_timer - delta).max(0.0) };
+        self.jump_buffer = (self.jump_buffer - delta).max(0.0);
 
         PlayerUpdate { jumped }
     }
