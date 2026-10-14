@@ -5,6 +5,7 @@
 use anyhow::Result;
 
 use crate::camera::Camera;
+use crate::editor::Editor;
 use crate::level::{LevelDefinition, TILE_SIZE};
 use crate::player::Player;
 
@@ -14,6 +15,7 @@ pub enum Screen {
     Level(LevelScreen),
     // end screen has the final level underneath it
     End(LevelScreen),
+    Editor(Editor),
 }
 
 // crumble blocks shake, then they're gone for a bit

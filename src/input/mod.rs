@@ -25,6 +25,9 @@ pub struct Input {
     // just pressed jump
     pub jump_pressed: bool,
 
+    // just pressed any arrow (menus)
+    pub arrow_pressed: bool,
+
     // is holding / pressed enter
     pub confirm: bool,
 
@@ -83,6 +86,7 @@ impl Input {
 
         // one-shot buttons are reset / recomputed every frame
         self.jump_pressed = keyboard.jump_pressed || gamepad.jump_pressed;
+        self.arrow_pressed = keyboard.arrow_pressed || gamepad.arrow_pressed;
         self.confirm_pressed =
             keyboard.confirm_pressed || gamepad.confirm_pressed;
         self.screenshot_pressed =
@@ -113,6 +117,7 @@ struct InputState {
     right: bool,
     jump: bool,
     jump_pressed: bool,
+    arrow_pressed: bool,
     confirm: bool,
     confirm_pressed: bool,
     screenshot_pressed: bool,
@@ -131,6 +136,7 @@ impl InputState {
     /// Clear just the one-shot button presses
     fn clear_pressed(&mut self) {
         self.jump_pressed = false;
+        self.arrow_pressed = false;
         self.confirm_pressed = false;
         self.screenshot_pressed = false;
         self.effects_toggle_pressed = false;

@@ -20,6 +20,7 @@ mod audio;
 mod camera;
 mod color;
 mod debug;
+mod editor;
 mod input;
 mod level;
 mod player;
@@ -125,6 +126,8 @@ fn main() -> Result<()> {
     let mut term_handle = Terminal::init()?;
     let mut input = input::Input::new();
     let mut screen = Screen::Title(level_screen);
+    // 0 = play, 1 = editor
+    let mut title_option = 0;
 
     // target FPS
     let frame_duration = Duration::from_secs_f32(1.0 / args.fps as f32);
@@ -199,6 +202,7 @@ fn main() -> Result<()> {
                 Screen::Title(s) => s.level.palette = palette,
                 Screen::Level(s) => s.level.palette = palette,
                 Screen::End(s) => s.level.palette = palette,
+                Screen::Editor(_) => {}
             };
             message = Some((
                 "palette randomized".into(),
@@ -243,9 +247,13 @@ fn main() -> Result<()> {
         } else {
             false
         };
-        // remove the title and spawn the player into the active level
+        // remove the title and spawn the player into the active level, or
+        // open the editor
         if input.confirm_pressed {
             screen = match screen {
+                Screen::Title(_) if title_option == 1 => {
+                    Screen::Editor(editor::Editor)
+                }
                 Screen::Title(level_screen) => {
                     if let Some(audio) = &audio {
                         audio.play_music(&level_screen.level.music)?;
@@ -254,6 +262,10 @@ fn main() -> Result<()> {
                 }
                 screen => screen,
             };
+        } else if (input.arrow_pressed || input.jump_pressed)
+            && matches!(screen, Screen::Title(_))
+        {
+            title_option = 1 - title_option;
         }
 
         // update the active screen
@@ -265,6 +277,7 @@ fn main() -> Result<()> {
             Screen::Title(level_screen) | Screen::End(level_screen) => {
                 level_screen.elapsed += delta.as_secs_f32();
             }
+            Screen::Editor(_) => {}
             // paused while the debug menu is open
             Screen::Level(_) if menu_open => {}
             Screen::Level(level_screen) => {
@@ -462,7 +475,7 @@ fn main() -> Result<()> {
                     HEIGHT as u32,
                 )
                 .context("could not render title level")?;
-                render::title(&mut frame)?;
+                render::title(&mut frame, title_option)?;
                 frame
             }
             Screen::Level(level_screen) => {
@@ -490,6 +503,9 @@ fn main() -> Result<()> {
                 .context("could not render end level")?;
                 render::end(&mut frame)?;
                 frame
+            }
+            Screen::Editor(editor) => {
+                editor.render(WIDTH as u32, HEIGHT as u32)
             }
         };
 
@@ -563,7 +579,7 @@ fn main() -> Result<()> {
         let msg = message.as_ref().map(|(text, _)| text.as_str()).unwrap_or("");
 
         match &screen {
-            Screen::Title(_) => {
+            Screen::Title(_) | Screen::Editor(_) => {
                 if !msg.is_empty() {
                     print!("{}\x1b[K\r", msg);
                 }

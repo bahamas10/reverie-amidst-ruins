@@ -80,8 +80,17 @@ const SOURCE_PALETTE: Palette = [
 ];
 
 /// Render "title" screen
-pub fn title(frame: &mut RgbaImage) -> Result<()> {
-    overlay_image(frame, TITLE)
+pub fn title(frame: &mut RgbaImage, selected: usize) -> Result<()> {
+    overlay_image(frame, TITLE)?;
+    for (i, option) in ["PLAY", "EDITOR"].iter().enumerate() {
+        let y = 130 + i as i32 * 13;
+        if i == selected {
+            text(frame, &format!("> {option} <"), y, 1, [255; 3]);
+        } else {
+            text(frame, option, y, 1, [0x80; 3]);
+        }
+    }
+    Ok(())
 }
 
 /// Render "end" screen
@@ -455,6 +464,53 @@ fn hitbox(
             for (channel, c) in pixel.0[..3].iter_mut().zip(color) {
                 *channel =
                     (*channel as f32 * (1.0 - alpha) + c as f32 * alpha) as u8;
+            }
+        }
+    }
+}
+
+// tiny 5x7 font, only has what we need so far
+fn glyph(c: char) -> [u8; 7] {
+    match c {
+        'A' => [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
+        'D' => [0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e],
+        'E' => [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f],
+        'I' => [0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e],
+        'L' => [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f],
+        'O' => [0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
+        'P' => [0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10],
+        'R' => [0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11],
+        'T' => [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
+        'Y' => [0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04],
+        '>' => [0x10, 0x08, 0x04, 0x02, 0x04, 0x08, 0x10],
+        '<' => [0x01, 0x02, 0x04, 0x08, 0x04, 0x02, 0x01],
+        _ => [0; 7],
+    }
+}
+
+/// Draw text centered horizontally
+pub fn text(
+    frame: &mut RgbaImage,
+    text: &str,
+    y: i32,
+    scale: i32,
+    color: Color,
+) {
+    let width = (text.chars().count() as i32 * 6 - 1) * scale;
+    let x = (frame.width() as i32 - width) / 2;
+    for (i, c) in text.chars().enumerate() {
+        for (row, bits) in glyph(c).iter().enumerate() {
+            for col in (0..5).filter(|col| bits >> (4 - col) & 1 == 1) {
+                let px = x + (i as i32 * 6 + col) * scale;
+                let py = y + row as i32 * scale;
+                for (dx, dy) in
+                    (0..scale).flat_map(|dx| (0..scale).map(move |dy| (dx, dy)))
+                {
+                    let (px, py) = ((px + dx) as u32, (py + dy) as u32);
+                    if let Some(p) = frame.get_pixel_mut_checked(px, py) {
+                        p.0 = [color[0], color[1], color[2], 255];
+                    }
+                }
             }
         }
     }

@@ -24,10 +24,15 @@ impl Keyboard {
 
             match key.code {
                 KeyCode::Left | KeyCode::Char('a' | 'A') => {
+                    self.state.arrow_pressed |= is_pressed;
                     self.state.left = is_down
                 }
                 KeyCode::Right | KeyCode::Char('d' | 'D') => {
+                    self.state.arrow_pressed |= is_pressed;
                     self.state.right = is_down
+                }
+                KeyCode::Up | KeyCode::Down if is_pressed => {
+                    self.state.arrow_pressed = true;
                 }
                 KeyCode::Char(' ') => {
                     if is_pressed {
