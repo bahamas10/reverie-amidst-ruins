@@ -212,17 +212,19 @@ pub fn level(
     }
 
     // draw goal
-    sprite(
-        &mut frame,
-        &tileset,
-        GOAL,
-        camera.world_to_screen(
-            (level.goal.0 * TILE_SIZE) as f32,
-            (level.goal.1 * TILE_SIZE) as f32,
-        ),
-        &level.palette,
-        false,
-    );
+    if let Some((x, y)) = level.goal {
+        sprite(
+            &mut frame,
+            &tileset,
+            GOAL,
+            camera.world_to_screen(
+                (x * TILE_SIZE) as f32,
+                (y * TILE_SIZE) as f32,
+            ),
+            &level.palette,
+            false,
+        );
+    }
 
     // draw player - it's smaller
     if let Some(player) = player {
@@ -264,7 +266,7 @@ pub fn hitboxes(
 
     // coins and the goal use the whole tile
     if overlays.entities {
-        for &coin in coins.iter().chain([&level.goal]) {
+        for &coin in coins.iter().chain(&level.goal) {
             hitbox(frame, at(coin), tile, HITBOX_ENTITY);
         }
     }

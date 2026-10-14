@@ -20,7 +20,7 @@ pub struct LevelDefinition {
     pub width: usize,
     pub height: usize,
     pub spawn: (usize, usize),
-    pub goal: (usize, usize),
+    pub goal: Option<(usize, usize)>,
     pub blocks: Vec<Vec<bool>>,
     pub coins: Vec<(usize, usize)>,
 }
@@ -103,7 +103,6 @@ impl LevelDefinition {
 
         let (width, height) = (blocks[0].len(), blocks.len());
         let spawn = spawn.context("no spawn found")?;
-        let goal = goal.context("no goal found")?;
 
         Ok(Self {
             name,

@@ -40,6 +40,9 @@ const LEVELS: &[&str] = &[
     include_str!("../levels/level3.txt"),
 ];
 
+// accessible from F4, testing mechanics
+const DEBUG_LEVEL: &str = include_str!("../levels/debug.txt");
+
 // internal width and height of the game viewport (rendered internally and then
 // stretched)
 const WIDTH: usize = 360;
@@ -52,7 +55,12 @@ const DEATH_PLANE: f32 = 70.0;
 const MESSAGE_DURATION: Duration = Duration::from_secs(3);
 
 fn load_level(index: usize) -> Result<LevelScreen> {
-    let source = LEVELS.get(index).context("unknown level")?;
+    // debug world sits right after the real levels
+    let source = match LEVELS.get(index) {
+        Some(source) => source,
+        None if index == LEVELS.len() => DEBUG_LEVEL,
+        None => anyhow::bail!("unknown level"),
+    };
 
     let mut level_screen = LevelScreen::load(index, source)
         .with_context(|| format!("could not load level {}", index + 1))?;
@@ -75,6 +83,7 @@ fn main() -> Result<()> {
     // parse args
     let args = args::parse();
     let start_level = args.level as usize - 1;
+    anyhow::ensure!(start_level < LEVELS.len(), "unknown level");
 
     // load the first level behind the title screen
     let level_screen = load_level(start_level)?;
@@ -92,6 +101,8 @@ fn main() -> Result<()> {
             l.music
         ));
     }
+    let l = level::LevelDefinition::parse(DEBUG_LEVEL)?;
+    level_names.push(format!("{} ({}, {})", l.name, l.background, l.music));
 
     // start the title music unless audio was disabled
     let mut audio = if args.no_audio {
@@ -157,10 +168,15 @@ fn main() -> Result<()> {
             if let Some(audio) = &audio {
                 audio.play_music(&level_screen.level.music)?;
             }
+            let name = if index < LEVELS.len() {
+                format!("level {}", index + 1)
+            } else {
+                level_screen.level.name.clone()
+            };
             screen = Screen::Level(level_screen);
             finished = false;
             message = Some((
-                format!("teleported to level {}", index + 1),
+                format!("teleported to {name}"),
                 Instant::now() + MESSAGE_DURATION,
             ));
         }
@@ -290,12 +306,14 @@ fn main() -> Result<()> {
 
                     // touching the goal goes to the next level (if there is
                     // one)
-                    let goal = player.overlaps(
-                        (level.goal.0 * level::TILE_SIZE) as f32,
-                        (level.goal.1 * level::TILE_SIZE) as f32,
-                        level::TILE_SIZE as f32,
-                        level::TILE_SIZE as f32,
-                    );
+                    let goal = level.goal.is_some_and(|(x, y)| {
+                        player.overlaps(
+                            (x * level::TILE_SIZE) as f32,
+                            (y * level::TILE_SIZE) as f32,
+                            level::TILE_SIZE as f32,
+                            level::TILE_SIZE as f32,
+                        )
+                    });
                     if goal {
                         stats.levels_beaten += 1;
                         stats.coins_collected += level_screen.coin_count;
