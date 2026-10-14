@@ -13,7 +13,7 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
-use crossterm::event::KeyEventKind;
+use crossterm::event::{KeyCode, KeyEventKind};
 
 mod args;
 mod audio;
@@ -109,6 +109,9 @@ fn main() -> Result<()> {
     let l = level::LevelDefinition::parse(DEBUG_LEVEL)?;
     level_names.push(format!("{} ({}, {})", l.name, l.background, l.music));
 
+    // what the editor can open
+    let worlds: Vec<_> = LEVELS.iter().copied().chain([DEBUG_LEVEL]).collect();
+
     // start the title music unless audio was disabled
     let mut audio = if args.no_audio {
         None
@@ -152,7 +155,7 @@ fn main() -> Result<()> {
         last_time = now;
 
         // read all pending terminal input
-        let events = term_handle.read_events()?;
+        let mut events = term_handle.read_events()?;
 
         // debug menu eats key presses while open, releases still go through
         // so held keys don't get stuck
@@ -161,6 +164,19 @@ fn main() -> Result<()> {
         let menu_open = debug_menu.open;
         if menu_was_open && !menu_open {
             term_handle.clear_screen()?;
+        }
+        // the editor reads keys itself, esc goes back instead of quitting
+        if let Screen::Editor(editor) = &mut screen {
+            let leave = !menu_was_open
+                && !menu_open
+                && editor.update(&events, &worlds, delta.as_secs_f32())?;
+            events.retain(|key| key.code != KeyCode::Esc);
+            if leave {
+                screen = Screen::Title(load_level(start_level)?);
+                if let Some(audio) = &audio {
+                    audio.play_music("reverie-amidst-ruins")?;
+                }
+            }
         }
         if menu_was_open || menu_open {
             let mut releases = events.clone();
@@ -252,7 +268,10 @@ fn main() -> Result<()> {
         if input.confirm_pressed {
             screen = match screen {
                 Screen::Title(_) if title_option == 1 => {
-                    Screen::Editor(editor::Editor)
+                    if let Some(audio) = &audio {
+                        audio.play_music("blueprints")?;
+                    }
+                    Screen::Editor(editor::Editor::new(&worlds)?)
                 }
                 Screen::Title(level_screen) => {
                     if let Some(audio) = &audio {
@@ -505,7 +524,7 @@ fn main() -> Result<()> {
                 frame
             }
             Screen::Editor(editor) => {
-                editor.render(WIDTH as u32, HEIGHT as u32)
+                editor.render().context("could not render editor")?
             }
         };
 
