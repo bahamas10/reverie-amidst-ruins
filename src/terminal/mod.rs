@@ -192,7 +192,7 @@ impl Terminal {
         Ok(())
     }
 
-    fn clear_screen(&self) -> Result<()> {
+    pub fn clear_screen(&self) -> Result<()> {
         let mut stdout = std::io::stdout();
 
         queue!(stdout, terminal::Clear(terminal::ClearType::All))

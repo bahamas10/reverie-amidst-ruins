@@ -8,7 +8,8 @@ use anyhow::{Context, Result, bail};
 use image::{RgbaImage, imageops};
 
 use crate::camera::Camera;
-use crate::color::Palette;
+use crate::color::{Color, Palette};
+use crate::debug::Overlays;
 use crate::level::{LevelDefinition, TILE_SIZE};
 use crate::player::{HITBOX_HEIGHT, HITBOX_WIDTH, Player};
 
@@ -26,6 +27,13 @@ const SCANLINE_BRIGHTNESS: f32 = 1.55;
 // sprite drop shadows
 const SHADOW_OFFSET: (i32, i32) = (3, 3);
 const SHADOW_OPACITY: u8 = 50;
+
+// debug hitboxes
+const HITBOX_HURTBOX: Color = [0xff, 0x30, 0x30];
+const HITBOX_PICKUP: Color = [0xff, 0xe0, 0x30];
+const HITBOX_BLOCK: Color = [0x30, 0x80, 0xff];
+const HITBOX_ENTITY: Color = [0x30, 0xff, 0x60];
+const HITBOX_FILL_OPACITY: f32 = 0.25;
 
 // locations of the tiles in tileset PNG
 const GROUND: (usize, usize) = (0, 0);
@@ -230,6 +238,76 @@ pub fn level(
     }
 
     Ok(frame)
+}
+
+// debug hitboxes on top of the level
+pub fn hitboxes(
+    frame: &mut RgbaImage,
+    level: &LevelDefinition,
+    player: &Player,
+    camera: &Camera,
+    coins: &[(usize, usize)],
+    overlays: &Overlays,
+) {
+    let tile = (TILE_SIZE as i32, TILE_SIZE as i32);
+    let at = |(x, y): (usize, usize)| {
+        camera.world_to_screen((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32)
+    };
+
+    if overlays.blocks {
+        for (y, row) in level.blocks.iter().enumerate() {
+            for x in (0..row.len()).filter(|&x| row[x]) {
+                hitbox(frame, at((x, y)), tile, HITBOX_BLOCK);
+            }
+        }
+    }
+
+    // coins and the goal use the whole tile
+    if overlays.entities {
+        for &coin in coins.iter().chain([&level.goal]) {
+            hitbox(frame, at(coin), tile, HITBOX_ENTITY);
+        }
+    }
+
+    // there's only 1 player box right now so these are the same lol
+    let player_at = camera.world_to_screen(player.x, player.y);
+    let size = (HITBOX_WIDTH as i32, HITBOX_HEIGHT as i32);
+    if overlays.hurtbox {
+        hitbox(frame, player_at, size, HITBOX_HURTBOX);
+    }
+    if overlays.pickup {
+        hitbox(frame, player_at, size, HITBOX_PICKUP);
+    }
+}
+
+// solid outline, see-through inside
+fn hitbox(
+    frame: &mut RgbaImage,
+    (x, y): (i32, i32),
+    (w, h): (i32, i32),
+    color: Color,
+) {
+    for py in y.max(0)..(y + h).min(frame.height() as i32) {
+        for px in x.max(0)..(x + w).min(frame.width() as i32) {
+            let edge = px == x || py == y || px == x + w - 1 || py == y + h - 1;
+            let alpha = if edge { 1.0 } else { HITBOX_FILL_OPACITY };
+
+            let pixel = frame.get_pixel_mut(px as u32, py as u32);
+            for (channel, c) in pixel.0[..3].iter_mut().zip(color) {
+                *channel =
+                    (*channel as f32 * (1.0 - alpha) + c as f32 * alpha) as u8;
+            }
+        }
+    }
+}
+
+// used behind the debug menu so the text is readable
+pub fn darken(frame: &mut RgbaImage, (x, y): (u32, u32), (w, h): (u32, u32)) {
+    for (px, py, pixel) in frame.enumerate_pixels_mut() {
+        if (x..x + w).contains(&px) && (y..y + h).contains(&py) {
+            pixel.0[..3].iter_mut().for_each(|c| *c /= 4);
+        }
+    }
 }
 
 /**

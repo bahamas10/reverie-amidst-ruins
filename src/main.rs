@@ -13,11 +13,13 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
+use crossterm::event::KeyEventKind;
 
 mod args;
 mod audio;
 mod camera;
 mod color;
+mod debug;
 mod input;
 mod level;
 mod player;
@@ -27,6 +29,7 @@ mod stats;
 mod terminal;
 
 use audio::SoundEffect;
+use debug::DebugMenu;
 use screen::{LevelScreen, Screen};
 use stats::Stats;
 use terminal::Terminal;
@@ -77,6 +80,19 @@ fn main() -> Result<()> {
     let level_screen = load_level(start_level)?;
     let mut stats = Stats::new(start_level, LEVELS)?;
 
+    // for the debug menu teleport, names are all TODO so add more to search
+    let mut level_names = vec![];
+    for (i, source) in LEVELS.iter().enumerate() {
+        let l = level::LevelDefinition::parse(source)?;
+        level_names.push(format!(
+            "level {}: {} ({}, {})",
+            i + 1,
+            l.name,
+            l.background,
+            l.music
+        ));
+    }
+
     // start the title music unless audio was disabled
     let mut audio = if args.no_audio {
         None
@@ -102,7 +118,7 @@ fn main() -> Result<()> {
     // "HUD"
     let mut message = None;
     let mut effects_enabled = true;
-    let mut debug_enabled = args.debug;
+    let mut debug_menu = DebugMenu::new(args.debug);
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
     let mut fps = 0.0;
@@ -119,7 +135,35 @@ fn main() -> Result<()> {
 
         // read all pending terminal input
         let events = term_handle.read_events()?;
-        input.update(&events);
+
+        // debug menu eats key presses while open, releases still go through
+        // so held keys don't get stuck
+        let menu_was_open = debug_menu.open;
+        let teleport = debug_menu.update(&events, &level_names);
+        let menu_open = debug_menu.open;
+        if menu_was_open && !menu_open {
+            term_handle.clear_screen()?;
+        }
+        if menu_was_open || menu_open {
+            let mut releases = events.clone();
+            releases.retain(|key| key.kind == KeyEventKind::Release);
+            input.update(&releases);
+        } else {
+            input.update(&events);
+        }
+
+        if let Some(index) = teleport {
+            let level_screen = load_level(index)?;
+            if let Some(audio) = &audio {
+                audio.play_music(&level_screen.level.music)?;
+            }
+            screen = Screen::Level(level_screen);
+            finished = false;
+            message = Some((
+                format!("teleported to level {}", index + 1),
+                Instant::now() + MESSAGE_DURATION,
+            ));
+        }
 
         if input.effects_toggle_pressed {
             effects_enabled = !effects_enabled;
@@ -140,9 +184,6 @@ fn main() -> Result<()> {
                 "palette randomized".into(),
                 Instant::now() + MESSAGE_DURATION,
             ));
-        }
-        if input.debug_toggle_pressed {
-            debug_enabled = !debug_enabled;
         }
         if input.mute_toggle_pressed {
             let state = if let Some(audio) = &mut audio {
@@ -204,6 +245,8 @@ fn main() -> Result<()> {
             Screen::Title(level_screen) | Screen::End(level_screen) => {
                 level_screen.elapsed += delta.as_secs_f32();
             }
+            // paused while the debug menu is open
+            Screen::Level(_) if menu_open => {}
             Screen::Level(level_screen) => {
                 stats.playtime += delta;
                 level_screen.elapsed += delta.as_secs_f32();
@@ -316,16 +359,27 @@ fn main() -> Result<()> {
                 render::title(&mut frame)?;
                 frame
             }
-            Screen::Level(level_screen) => render::level(
-                &level_screen.level,
-                Some(&level_screen.player),
-                &level_screen.camera,
-                &level_screen.remaining_coins,
-                level_screen.elapsed,
-                WIDTH as u32,
-                HEIGHT as u32,
-            )
-            .context("could not render level")?,
+            Screen::Level(level_screen) => {
+                let mut frame = render::level(
+                    &level_screen.level,
+                    Some(&level_screen.player),
+                    &level_screen.camera,
+                    &level_screen.remaining_coins,
+                    level_screen.elapsed,
+                    WIDTH as u32,
+                    HEIGHT as u32,
+                )
+                .context("could not render level")?;
+                render::hitboxes(
+                    &mut frame,
+                    &level_screen.level,
+                    &level_screen.player,
+                    &level_screen.camera,
+                    &level_screen.remaining_coins,
+                    &debug_menu.overlays,
+                );
+                frame
+            }
             Screen::End(level_screen) => {
                 let mut frame = render::level(
                     &level_screen.level,
@@ -370,6 +424,16 @@ fn main() -> Result<()> {
         // display the frame
         let placement = term_handle
             .image_placement(frame.width() as usize, frame.height() as usize);
+
+        // cells -> pixels for the area behind the debug menu
+        if menu_open {
+            let x =
+                |cells| cells as u32 * WIDTH as u32 / placement.width as u32;
+            let y =
+                |cells| cells as u32 * HEIGHT as u32 / placement.height as u32;
+            let (offset, w, h) = (debug::OFFSET, debug::WIDTH, debug::HEIGHT);
+            render::darken(&mut frame, (x(offset), y(offset)), (x(w), y(h)));
+        }
         let frame_bytes = terminal::kitty_graphics::display_rgba(
             frame.as_raw(),
             frame.width() as usize,
@@ -417,7 +481,7 @@ fn main() -> Result<()> {
             Screen::Level(level_screen) => {
                 print!("fps {:.1}", fps);
 
-                if debug_enabled {
+                if debug_menu.overlays.stats {
                     print!(
                         " | {:.1} KiB/frame | {:.1} KiB/s",
                         frame_kib, kib_per_second
@@ -435,6 +499,10 @@ fn main() -> Result<()> {
 
                 print!("\x1b[K\r");
             }
+        }
+
+        if menu_open {
+            debug_menu.draw(&level_names, placement);
         }
 
         // sleep until the next fixed deadline - keeping an absolute deadline
