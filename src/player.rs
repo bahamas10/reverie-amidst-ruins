@@ -15,6 +15,7 @@ const MAX_FALL_SPEED: f32 = 450.0;
 const SPRING_SPEED: f32 = 420.0; // ~7 tiles high
 const COYOTE_TIME: f32 = 0.1; // behaves the same at any fps (uses timers), ~6 frames at 60fps
 const JUMP_BUFFER: f32 = 0.1; // pressing jump a bit before landing still jumps
+const CORNER_CORRECTION: u32 = 4; // pixels you get nudged around a ceiling corner
 const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
 pub const HITBOX_WIDTH: f32 = 12.0;
 pub const HITBOX_HEIGHT: f32 = 15.0;
@@ -176,6 +177,22 @@ impl Player {
         self.y += amount;
 
         if hits_solid(self.x, self.y, blocks) {
+            // clipped a ceiling corner by a few pixels going up, slide around
+            // it instead of bonking (only the way you're moving, like celeste)
+            if amount < 0.0 {
+                for i in 1..=CORNER_CORRECTION {
+                    for dir in [-1.0, 1.0] {
+                        let x = self.x + dir * i as f32;
+                        if self.vx * dir >= 0.0
+                            && !hits_solid(x, self.y, blocks)
+                        {
+                            self.x = x;
+                            return;
+                        }
+                    }
+                }
+            }
+
             self.y = resolve_collision(self.y, amount, HITBOX_HEIGHT);
             self.grounded = amount > 0.0;
             self.vy = 0.0;
