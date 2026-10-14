@@ -12,6 +12,7 @@ const GRAVITY: f32 = 800.0;
 const JUMP_SPEED: f32 = 300.0;
 const JUMP_RELEASE_SPEED: f32 = 100.0;
 const MAX_FALL_SPEED: f32 = 450.0;
+const COYOTE_TIME: f32 = 0.1; // behaves the same at any fps (uses timers), ~6 frames at 60fps
 const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
 pub const HITBOX_WIDTH: f32 = 12.0;
 pub const HITBOX_HEIGHT: f32 = 15.0;
@@ -41,6 +42,7 @@ pub struct Player {
     pub vy: f32,
     pub vx: f32,
     pub grounded: bool,
+    pub coyote_timer: f32,
     pub facing: PlayerFacing,
     pub spawn_x: f32,
     pub spawn_y: f32,
@@ -54,6 +56,7 @@ impl Player {
             vy: 0.0,
             vx: 0.0,
             grounded: false,
+            coyote_timer: 0.0,
             facing: PlayerFacing::Right,
             spawn_x: x,
             spawn_y: y,
@@ -66,6 +69,7 @@ impl Player {
         self.vx = 0.0;
         self.vy = 0.0;
         self.grounded = false;
+        self.coyote_timer = 0.0;
     }
 
     pub fn overlaps(&self, x: f32, y: f32, width: f32, height: f32) -> bool {
@@ -101,11 +105,12 @@ impl Player {
         self.vx = approach(self.vx, target_speed, acceleration * delta);
         self.move_x(self.vx * delta, blocks, max_x);
 
-        // handle jump
-        let jumped = input.jump_pressed && self.grounded;
+        // handle jump & coyote
+        let jumped = input.jump_pressed && self.coyote_timer > 0.0;
         if jumped {
             self.vy = -JUMP_SPEED;
             self.grounded = false;
+            self.coyote_timer = 0.0;
         }
 
         // releasing jump early cuts the remaining upward speed
@@ -117,6 +122,9 @@ impl Player {
         self.vy = (self.vy + GRAVITY * delta).min(MAX_FALL_SPEED);
         self.grounded = false;
         self.move_y(self.vy * delta, blocks);
+
+        // refill coyote time while grounded, drain it while in air
+        self.coyote_timer = if self.grounded { COYOTE_TIME } else { (self.coyote_timer - delta).max(0.0) };
 
         PlayerUpdate { jumped }
     }
