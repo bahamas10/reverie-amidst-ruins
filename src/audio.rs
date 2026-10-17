@@ -16,6 +16,7 @@ const ECHOES: &[u8] = include_bytes!("../assets/songs/echoes-of-solace.ogg");
 const COLORS: &[u8] = include_bytes!("../assets/songs/colors.ogg");
 const FINAL_STORM: &[u8] =
     include_bytes!("../assets/songs/the-final-storm.ogg");
+const BLUEPRINTS: &[u8] = include_bytes!("../assets/songs/blueprints.ogg");
 const JUMP: &[u8] = include_bytes!("../assets/sfx/jump.wav");
 const COIN: &[u8] = include_bytes!("../assets/sfx/coin.wav");
 const DEAD: &[u8] = include_bytes!("../assets/sfx/dead.wav");
@@ -72,6 +73,7 @@ impl Audio {
             "echoes-of-solace" => ECHOES,
             "colors" => COLORS,
             "the-final-storm" => FINAL_STORM,
+            "blueprints" => BLUEPRINTS,
             _ => bail!("unknown music track: {name}"),
         };
 

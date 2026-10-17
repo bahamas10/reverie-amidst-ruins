@@ -13,11 +13,14 @@
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
+use crossterm::event::{KeyCode, KeyEventKind};
 
 mod args;
 mod audio;
 mod camera;
 mod color;
+mod debug;
+mod editor;
 mod input;
 mod level;
 mod player;
@@ -27,7 +30,8 @@ mod stats;
 mod terminal;
 
 use audio::SoundEffect;
-use screen::{LevelScreen, Screen};
+use debug::DebugMenu;
+use screen::{Crumble, LevelScreen, Screen};
 use stats::Stats;
 use terminal::Terminal;
 
@@ -37,6 +41,9 @@ const LEVELS: &[&str] = &[
     include_str!("../levels/level3.txt"),
 ];
 
+// accessible from F4, testing mechanics
+const DEBUG_LEVEL: &str = include_str!("../levels/debug.txt");
+
 // internal width and height of the game viewport (rendered internally and then
 // stretched)
 const WIDTH: usize = 360;
@@ -45,11 +52,20 @@ const HEIGHT: usize = 270;
 // number of pixels below the floor of the level where a death is considered
 const DEATH_PLANE: f32 = 70.0;
 
+// crumble blocks shake this long, then come back after this long
+const CRUMBLE_SHAKE: f32 = 0.4;
+const CRUMBLE_RESPAWN: f32 = 2.0;
+
 // how long a message should stay on screen
 const MESSAGE_DURATION: Duration = Duration::from_secs(3);
 
 fn load_level(index: usize) -> Result<LevelScreen> {
-    let source = LEVELS.get(index).context("unknown level")?;
+    // debug world sits right after the real levels
+    let source = match LEVELS.get(index) {
+        Some(source) => source,
+        None if index == LEVELS.len() => DEBUG_LEVEL,
+        None => anyhow::bail!("unknown level"),
+    };
 
     let mut level_screen = LevelScreen::load(index, source)
         .with_context(|| format!("could not load level {}", index + 1))?;
@@ -72,10 +88,34 @@ fn main() -> Result<()> {
     // parse args
     let args = args::parse();
     let start_level = args.level as usize - 1;
+    anyhow::ensure!(start_level < LEVELS.len(), "unknown level");
 
     // load the first level behind the title screen
     let level_screen = load_level(start_level)?;
     let mut stats = Stats::new(start_level, LEVELS)?;
+
+    // for the debug menu teleport, names are all TODO so add more to search
+    let mut level_names = vec![];
+    for (i, source) in LEVELS.iter().enumerate() {
+        let l = level::LevelDefinition::parse(source)?;
+        level_names.push(format!(
+            "level {}: {} ({}, {})",
+            i + 1,
+            l.name,
+            l.background,
+            l.music
+        ));
+    }
+    let l = level::LevelDefinition::parse(DEBUG_LEVEL)?;
+    level_names.push(format!("{} ({}, {})", l.name, l.background, l.music));
+
+    // built in levels, for the editor when it can't read levels/
+    let mut worlds: Vec<_> = LEVELS
+        .iter()
+        .enumerate()
+        .map(|(i, source)| (format!("level{}.txt", i + 1), *source))
+        .collect();
+    worlds.push(("debug.txt".into(), DEBUG_LEVEL));
 
     // start the title music unless audio was disabled
     let mut audio = if args.no_audio {
@@ -94,6 +134,8 @@ fn main() -> Result<()> {
     let mut term_handle = Terminal::init()?;
     let mut input = input::Input::new();
     let mut screen = Screen::Title(level_screen);
+    // 0 = play, 1 = editor
+    let mut title_option = 0;
 
     // target FPS
     let frame_duration = Duration::from_secs_f32(1.0 / args.fps as f32);
@@ -102,7 +144,7 @@ fn main() -> Result<()> {
     // "HUD"
     let mut message = None;
     let mut effects_enabled = true;
-    let mut debug_enabled = args.debug;
+    let mut debug_menu = DebugMenu::new(args.debug);
     let mut fps_timer = Instant::now();
     let mut fps_frame_count = 0;
     let mut fps = 0.0;
@@ -112,14 +154,95 @@ fn main() -> Result<()> {
     // game loop
     let mut last_time = Instant::now();
     let mut finished = false;
+    // set while playing a world from the editor
+    let mut testing: Option<editor::Editor> = None;
     while !input.quit {
         let now = Instant::now();
         let delta = now.duration_since(last_time);
         last_time = now;
 
         // read all pending terminal input
-        let events = term_handle.read_events()?;
-        input.update(&events);
+        let mut events = term_handle.read_events()?;
+
+        // debug menu eats key presses while open, releases still go through
+        // so held keys don't get stuck
+        let menu_was_open = debug_menu.open;
+        let teleport = debug_menu.update(&events, &level_names);
+        let menu_open = debug_menu.open;
+        if menu_was_open && !menu_open {
+            term_handle.clear_screen()?;
+        }
+        // the editor reads keys itself, only quit and releases go through
+        if let Screen::Editor(editor) = &mut screen {
+            let exit = if menu_was_open || menu_open {
+                None
+            } else {
+                editor.update(&events, delta.as_secs_f32())?
+            };
+            let typing = editor.typing();
+            events.retain(|key| {
+                key.kind == KeyEventKind::Release
+                    || !typing && matches!(key.code, KeyCode::Char('q' | 'Q'))
+            });
+            match exit {
+                Some(editor::Exit::Title) => {
+                    screen = Screen::Title(load_level(start_level)?);
+                    if let Some(audio) = &audio {
+                        audio.play_music("reverie-amidst-ruins")?;
+                    }
+                }
+                Some(editor::Exit::Test(level_screen)) => {
+                    if let Some(audio) = &audio {
+                        audio.play_music(&level_screen.level.music)?;
+                    }
+                    let level = Screen::Level(*level_screen);
+                    if let Screen::Editor(editor) =
+                        std::mem::replace(&mut screen, level)
+                    {
+                        testing = Some(editor);
+                    }
+                }
+                Some(editor::Exit::Music(song)) => {
+                    if let Some(audio) = &audio {
+                        audio.play_music(&song)?;
+                    }
+                }
+                None => {}
+            }
+        }
+        // esc (or the finish) while testing goes back to the editor
+        let mut back_to_editor = false;
+        if testing.is_some() && matches!(screen, Screen::Level(_)) {
+            back_to_editor = events.iter().any(|key| {
+                key.code == KeyCode::Esc && key.kind == KeyEventKind::Press
+            });
+            events.retain(|key| key.code != KeyCode::Esc);
+        }
+        if menu_was_open || menu_open {
+            let mut releases = events.clone();
+            releases.retain(|key| key.kind == KeyEventKind::Release);
+            input.update(&releases);
+        } else {
+            input.update(&events);
+        }
+
+        if let Some(index) = teleport {
+            let level_screen = load_level(index)?;
+            if let Some(audio) = &audio {
+                audio.play_music(&level_screen.level.music)?;
+            }
+            let name = if index < LEVELS.len() {
+                format!("level {}", index + 1)
+            } else {
+                level_screen.level.name.clone()
+            };
+            screen = Screen::Level(level_screen);
+            finished = false;
+            message = Some((
+                format!("teleported to {name}"),
+                Instant::now() + MESSAGE_DURATION,
+            ));
+        }
 
         if input.effects_toggle_pressed {
             effects_enabled = !effects_enabled;
@@ -135,14 +258,12 @@ fn main() -> Result<()> {
                 Screen::Title(s) => s.level.palette = palette,
                 Screen::Level(s) => s.level.palette = palette,
                 Screen::End(s) => s.level.palette = palette,
+                Screen::Editor(_) => {}
             };
             message = Some((
                 "palette randomized".into(),
                 Instant::now() + MESSAGE_DURATION,
             ));
-        }
-        if input.debug_toggle_pressed {
-            debug_enabled = !debug_enabled;
         }
         if input.mute_toggle_pressed {
             let state = if let Some(audio) = &mut audio {
@@ -182,9 +303,16 @@ fn main() -> Result<()> {
         } else {
             false
         };
-        // remove the title and spawn the player into the active level
+        // remove the title and spawn the player into the active level, or
+        // open the editor
         if input.confirm_pressed {
             screen = match screen {
+                Screen::Title(_) if title_option == 1 => {
+                    if let Some(audio) = &audio {
+                        audio.play_music("blueprints")?;
+                    }
+                    Screen::Editor(editor::Editor::new(&worlds)?)
+                }
                 Screen::Title(level_screen) => {
                     if let Some(audio) = &audio {
                         audio.play_music(&level_screen.level.music)?;
@@ -193,6 +321,10 @@ fn main() -> Result<()> {
                 }
                 screen => screen,
             };
+        } else if (input.arrow_pressed || input.jump_pressed)
+            && matches!(screen, Screen::Title(_))
+        {
+            title_option = 1 - title_option;
         }
 
         // update the active screen
@@ -204,6 +336,9 @@ fn main() -> Result<()> {
             Screen::Title(level_screen) | Screen::End(level_screen) => {
                 level_screen.elapsed += delta.as_secs_f32();
             }
+            Screen::Editor(_) => {}
+            // paused while the debug menu is open
+            Screen::Level(_) if menu_open => {}
             Screen::Level(level_screen) => {
                 stats.playtime += delta;
                 level_screen.elapsed += delta.as_secs_f32();
@@ -212,18 +347,101 @@ fn main() -> Result<()> {
                 let player = &mut level_screen.player;
 
                 let level_width = (level.width * level::TILE_SIZE) as f32;
+                let dt = delta.as_secs_f32();
+
+                // moving platforms, take the player along if they're on one
+                let before: Vec<_> = level
+                    .movers
+                    .iter()
+                    .map(|m| m.position(level_screen.mover_time))
+                    .collect();
+                level_screen.mover_time += dt;
+                let platforms: Vec<_> = level
+                    .movers
+                    .iter()
+                    .zip(&before)
+                    .map(|(m, &(_, old_y))| {
+                        let (x, y) = m.position(level_screen.mover_time);
+                        (x, y, (m.width * level::TILE_SIZE) as f32, y - old_y)
+                    })
+                    .collect();
+                if let Some(i) = player.riding {
+                    let dx = platforms[i].0 - before[i].0;
+                    player.carry(dx, platforms[i].3, &level_screen.solid);
+                }
 
                 let player_update = player.update(
                     &input,
-                    delta.as_secs_f32(),
-                    &level.blocks,
+                    dt,
+                    &level_screen.solid,
+                    &level.jumpthrus,
+                    &platforms,
                     level_width - player::HITBOX_WIDTH,
                 );
                 jumped = player_update.jumped;
 
-                // death: reset after falling below the level
+                // crumble blocks shake when you stand on them, break, then
+                // come back (not while you're inside them though)
+                let crumbles =
+                    level.crumbles.iter().zip(&mut level_screen.crumbles);
+                for (&(x, y), crumble) in crumbles {
+                    let size = level::TILE_SIZE as f32;
+                    let (tx, ty) = (x as f32 * size, y as f32 * size);
+                    let standing = player.grounded
+                        && player.overlaps(tx, ty - 1.0, size, 1.0);
+                    let inside = player.overlaps(tx, ty, size, size);
+                    *crumble = match *crumble {
+                        Crumble::Intact if standing => Crumble::Shaking(0.0),
+                        Crumble::Shaking(time) if time >= CRUMBLE_SHAKE => {
+                            level_screen.solid[y][x] = false;
+                            Crumble::Gone(0.0)
+                        }
+                        Crumble::Shaking(time) => Crumble::Shaking(time + dt),
+                        Crumble::Gone(time)
+                            if time >= CRUMBLE_RESPAWN && !inside =>
+                        {
+                            level_screen.solid[y][x] = true;
+                            Crumble::Intact
+                        }
+                        Crumble::Gone(time) => Crumble::Gone(time + dt),
+                        crumble => crumble,
+                    };
+                }
+
+                // springs launch you if you touch them while not going up
+                // (or jumping on them this frame)
+                let springs =
+                    level.springs.iter().zip(&mut level_screen.springs);
+                for (&(x, y), since) in springs {
+                    *since += delta.as_secs_f32();
+                    let touching = player.overlaps(
+                        (x * level::TILE_SIZE) as f32,
+                        ((y + 1) * level::TILE_SIZE - level::SPRING_HEIGHT)
+                            as f32,
+                        level::TILE_SIZE as f32,
+                        level::SPRING_HEIGHT as f32,
+                    );
+                    if touching && (player.vy >= 0.0 || jumped) {
+                        player.bounce();
+                        *since = 0.0;
+                        jumped = true;
+                    }
+                }
+
+                let spiked = level.spikes.iter().any(|&((x, y), spike)| {
+                    let (sx, sy, w, h) = spike.hitbox();
+                    spike.kills(player.vx, player.vy)
+                        && player.overlaps(
+                            (x * level::TILE_SIZE + sx) as f32,
+                            (y * level::TILE_SIZE + sy) as f32,
+                            w as f32,
+                            h as f32,
+                        )
+                });
+
+                // death: reset after falling below the level or hitting spikes
                 let level_height = (level.height * level::TILE_SIZE) as f32;
-                if player.y > level_height + DEATH_PLANE {
+                if player.y > level_height + DEATH_PLANE || spiked {
                     player.reset();
                     level_screen.remaining_coins = level.coins.clone();
                     level_screen.coin_count = 0;
@@ -247,13 +465,17 @@ fn main() -> Result<()> {
 
                     // touching the goal goes to the next level (if there is
                     // one)
-                    let goal = player.overlaps(
-                        (level.goal.0 * level::TILE_SIZE) as f32,
-                        (level.goal.1 * level::TILE_SIZE) as f32,
-                        level::TILE_SIZE as f32,
-                        level::TILE_SIZE as f32,
-                    );
-                    if goal {
+                    let goal = level.goal.is_some_and(|(x, y)| {
+                        player.overlaps(
+                            (x * level::TILE_SIZE) as f32,
+                            (y * level::TILE_SIZE) as f32,
+                            level::TILE_SIZE as f32,
+                            level::TILE_SIZE as f32,
+                        )
+                    });
+                    if goal && testing.is_some() {
+                        back_to_editor = true;
+                    } else if goal {
                         stats.levels_beaten += 1;
                         stats.coins_collected += level_screen.coin_count;
 
@@ -273,6 +495,17 @@ fn main() -> Result<()> {
                     HEIGHT as f32,
                     delta.as_secs_f32(),
                 );
+            }
+        }
+
+        if died && let Screen::Level(level_screen) = &mut screen {
+            level_screen.reset_crumbles();
+        }
+
+        if back_to_editor && let Some(editor) = testing.take() {
+            screen = Screen::Editor(editor);
+            if let Some(audio) = &audio {
+                audio.play_music("blueprints")?;
             }
         }
 
@@ -304,41 +537,43 @@ fn main() -> Result<()> {
         let mut frame = match &mut screen {
             Screen::Title(level_screen) => {
                 let mut frame = render::level(
-                    &level_screen.level,
+                    level_screen,
                     None,
-                    &level_screen.camera,
-                    &level_screen.remaining_coins,
-                    level_screen.elapsed,
                     WIDTH as u32,
                     HEIGHT as u32,
                 )
                 .context("could not render title level")?;
-                render::title(&mut frame)?;
+                render::title(&mut frame, title_option)?;
                 frame
             }
-            Screen::Level(level_screen) => render::level(
-                &level_screen.level,
-                Some(&level_screen.player),
-                &level_screen.camera,
-                &level_screen.remaining_coins,
-                level_screen.elapsed,
-                WIDTH as u32,
-                HEIGHT as u32,
-            )
-            .context("could not render level")?,
+            Screen::Level(level_screen) => {
+                let mut frame = render::level(
+                    level_screen,
+                    Some(&level_screen.player),
+                    WIDTH as u32,
+                    HEIGHT as u32,
+                )
+                .context("could not render level")?;
+                render::hitboxes(
+                    &mut frame,
+                    level_screen,
+                    &debug_menu.overlays,
+                );
+                frame
+            }
             Screen::End(level_screen) => {
                 let mut frame = render::level(
-                    &level_screen.level,
+                    level_screen,
                     None,
-                    &level_screen.camera,
-                    &level_screen.remaining_coins,
-                    level_screen.elapsed,
                     WIDTH as u32,
                     HEIGHT as u32,
                 )
                 .context("could not render end level")?;
                 render::end(&mut frame)?;
                 frame
+            }
+            Screen::Editor(editor) => {
+                editor.render().context("could not render editor")?
             }
         };
 
@@ -370,6 +605,16 @@ fn main() -> Result<()> {
         // display the frame
         let placement = term_handle
             .image_placement(frame.width() as usize, frame.height() as usize);
+
+        // cells -> pixels for the area behind the debug menu
+        if menu_open {
+            let x =
+                |cells| cells as u32 * WIDTH as u32 / placement.width as u32;
+            let y =
+                |cells| cells as u32 * HEIGHT as u32 / placement.height as u32;
+            let (offset, w, h) = (debug::OFFSET, debug::WIDTH, debug::HEIGHT);
+            render::darken(&mut frame, (x(offset), y(offset)), (x(w), y(h)));
+        }
         let frame_bytes = terminal::kitty_graphics::display_rgba(
             frame.as_raw(),
             frame.width() as usize,
@@ -402,7 +647,7 @@ fn main() -> Result<()> {
         let msg = message.as_ref().map(|(text, _)| text.as_str()).unwrap_or("");
 
         match &screen {
-            Screen::Title(_) => {
+            Screen::Title(_) | Screen::Editor(_) => {
                 if !msg.is_empty() {
                     print!("{}\x1b[K\r", msg);
                 }
@@ -417,7 +662,7 @@ fn main() -> Result<()> {
             Screen::Level(level_screen) => {
                 print!("fps {:.1}", fps);
 
-                if debug_enabled {
+                if debug_menu.overlays.stats {
                     print!(
                         " | {:.1} KiB/frame | {:.1} KiB/s",
                         frame_kib, kib_per_second
@@ -435,6 +680,10 @@ fn main() -> Result<()> {
 
                 print!("\x1b[K\r");
             }
+        }
+
+        if menu_open {
+            debug_menu.draw(&level_names, placement);
         }
 
         // sleep until the next fixed deadline - keeping an absolute deadline

@@ -38,7 +38,7 @@ Utility
 - `num 1` - Toggle post-processing effects
 - `num 2` - Save screenshot to current directory
 - `num 3` - Randomize level color palette
-- `num 4` - Toggle debug statistics
+- `F4` - Debug menu: toggle frame stats and hitboxes, teleport to a level
 - `num 8` - Lower master volume by 5%
 - `num 9` - Raise master volume by 5%
 - `m` - Mute audio
@@ -58,6 +58,7 @@ Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
 - [audio.rs](src/audio.rs) - Audio Engine (music and SFX)
 - [camera.rs](src/camera.rs) - Player-following camera
 - [color.rs](src/color.rs) - Helpers to colorize tiles with custom palettes
+- [debug.rs](src/debug.rs) - F4 debug menu (overlays, hitboxes, level teleport)
 - [input/mod.rs](src/input/mod.rs) - Own and combine the available input methods
   - [input/keyboard.rs](src/input/keyboard.rs) - Handle keyboard input with
       `crossterm`

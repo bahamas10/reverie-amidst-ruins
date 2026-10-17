@@ -12,6 +12,10 @@ const GRAVITY: f32 = 800.0;
 const JUMP_SPEED: f32 = 300.0;
 const JUMP_RELEASE_SPEED: f32 = 100.0;
 const MAX_FALL_SPEED: f32 = 450.0;
+const SPRING_SPEED: f32 = 420.0; // ~7 tiles high
+const COYOTE_TIME: f32 = 0.1; // behaves the same at any fps (uses timers), ~6 frames at 60fps
+const JUMP_BUFFER: f32 = 0.1; // pressing jump a bit before landing still jumps
+const CORNER_CORRECTION: u32 = 4; // pixels you get nudged around a ceiling corner
 const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
 pub const HITBOX_WIDTH: f32 = 12.0;
 pub const HITBOX_HEIGHT: f32 = 15.0;
@@ -41,6 +45,11 @@ pub struct Player {
     pub vy: f32,
     pub vx: f32,
     pub grounded: bool,
+    pub coyote_timer: f32,
+    pub jump_buffer: f32,
+    pub springing: bool,
+    // which moving platform we're standing on
+    pub riding: Option<usize>,
     pub facing: PlayerFacing,
     pub spawn_x: f32,
     pub spawn_y: f32,
@@ -54,6 +63,10 @@ impl Player {
             vy: 0.0,
             vx: 0.0,
             grounded: false,
+            coyote_timer: 0.0,
+            jump_buffer: 0.0,
+            springing: false,
+            riding: None,
             facing: PlayerFacing::Right,
             spawn_x: x,
             spawn_y: y,
@@ -66,6 +79,28 @@ impl Player {
         self.vx = 0.0;
         self.vy = 0.0;
         self.grounded = false;
+        self.coyote_timer = 0.0;
+        self.jump_buffer = 0.0;
+        self.springing = false;
+        self.riding = None;
+    }
+
+    // moved along by the platform
+    pub fn carry(&mut self, dx: f32, dy: f32, blocks: &[Vec<bool>]) {
+        if !hits_solid(self.x + dx, self.y, blocks) {
+            self.x += dx;
+        }
+        if !hits_solid(self.x, self.y + dy, blocks) {
+            self.y += dy;
+        }
+    }
+
+    // launched by a spring, letting go of jump doesn't cut it short
+    pub fn bounce(&mut self) {
+        self.vy = -SPRING_SPEED;
+        self.grounded = false;
+        self.coyote_timer = 0.0;
+        self.springing = true;
     }
 
     pub fn overlaps(&self, x: f32, y: f32, width: f32, height: f32) -> bool {
@@ -80,6 +115,8 @@ impl Player {
         input: &Input,
         delta: f32,
         blocks: &[Vec<bool>],
+        jumpthrus: &[Vec<bool>],
+        platforms: &[(f32, f32, f32, f32)],
         max_x: f32,
     ) -> PlayerUpdate {
         let direction = match (input.left, input.right) {
@@ -101,22 +138,33 @@ impl Player {
         self.vx = approach(self.vx, target_speed, acceleration * delta);
         self.move_x(self.vx * delta, blocks, max_x);
 
-        // handle jump
-        let jumped = input.jump_pressed && self.grounded;
+        // handle jump, coyote & buffer
+        if input.jump_pressed {
+            self.jump_buffer = JUMP_BUFFER;
+        }
+        let jumped = self.jump_buffer > 0.0 && self.coyote_timer > 0.0;
         if jumped {
             self.vy = -JUMP_SPEED;
             self.grounded = false;
+            self.coyote_timer = 0.0;
+            self.jump_buffer = 0.0;
         }
 
         // releasing jump early cuts the remaining upward speed
-        if !input.jump && self.vy < -JUMP_RELEASE_SPEED {
+        self.springing &= self.vy < 0.0;
+        if !input.jump && !self.springing && self.vy < -JUMP_RELEASE_SPEED {
             self.vy = -JUMP_RELEASE_SPEED;
         }
 
         // handle vertical movement
         self.vy = (self.vy + GRAVITY * delta).min(MAX_FALL_SPEED);
         self.grounded = false;
-        self.move_y(self.vy * delta, blocks);
+        self.riding = None;
+        self.move_y(self.vy * delta, blocks, jumpthrus, platforms);
+
+        // refill coyote time while grounded, drain it while in air
+        self.coyote_timer = if self.grounded { COYOTE_TIME } else { (self.coyote_timer - delta).max(0.0) };
+        self.jump_buffer = (self.jump_buffer - delta).max(0.0);
 
         PlayerUpdate { jumped }
     }
@@ -136,13 +184,75 @@ impl Player {
         }
     }
 
-    fn move_y(&mut self, amount: f32, blocks: &[Vec<bool>]) {
+    fn move_y(
+        &mut self,
+        amount: f32,
+        blocks: &[Vec<bool>],
+        jumpthrus: &[Vec<bool>],
+        platforms: &[(f32, f32, f32, f32)],
+    ) {
         self.y += amount;
 
         if hits_solid(self.x, self.y, blocks) {
+            // clipped a ceiling corner by a few pixels going up, slide around
+            // it instead of bonking (only the way you're moving, like celeste)
+            if amount < 0.0 {
+                for i in 1..=CORNER_CORRECTION {
+                    for dir in [-1.0, 1.0] {
+                        let x = self.x + dir * i as f32;
+                        if self.vx * dir >= 0.0
+                            && !hits_solid(x, self.y, blocks)
+                        {
+                            self.x = x;
+                            return;
+                        }
+                    }
+                }
+            }
+
             self.y = resolve_collision(self.y, amount, HITBOX_HEIGHT);
             self.grounded = amount > 0.0;
             self.vy = 0.0;
+            return;
+        }
+
+        let bottom = self.y + HITBOX_HEIGHT;
+        let before = bottom - amount;
+
+        // moving platforms
+        for (i, &(px, py, width, dy)) in platforms.iter().enumerate() {
+            let over = self.x < px + width && self.x + HITBOX_WIDTH > px;
+            let was = py - dy.min(0.0);
+            if over && amount >= 0.0 && before <= was && py < bottom {
+                self.y = py - HITBOX_HEIGHT - 0.01;
+                self.grounded = true;
+                self.vy = 0.0;
+                self.riding = Some(i);
+                return;
+            }
+        }
+
+        // jump thrus only catch you falling onto them, so you have to have
+        // been above the top edge last frame (like celeste)
+        if amount <= 0.0 {
+            return;
+        }
+        let left = (self.x / TILE_SIZE_F32).floor() as usize;
+        let right = ((self.x + HITBOX_WIDTH - 0.01) / TILE_SIZE_F32) as usize;
+        let first = (before / TILE_SIZE_F32).ceil() as usize;
+        let last = (bottom / TILE_SIZE_F32).floor() as usize;
+
+        for row in first..=last {
+            let edge = row as f32 * TILE_SIZE_F32;
+            let hit = jumpthrus.get(row).is_some_and(|tiles| {
+                (left..=right).any(|x| tiles.get(x).copied().unwrap_or(false))
+            });
+            if hit && edge < bottom {
+                self.y = edge - HITBOX_HEIGHT - 0.01;
+                self.grounded = true;
+                self.vy = 0.0;
+                return;
+            }
         }
     }
 }

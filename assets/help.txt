@@ -24,7 +24,7 @@ Utility
 - $(c6)num 1        $(reset) -> Toggle post-processing effects
 - $(c6)num 2        $(reset) -> Save screenshot to current directory
 - $(c6)num 3        $(reset) -> Randomize level color palette
-- $(c6)num 4        $(reset) -> Toggle debug statistics
+- $(c6)F4           $(reset) -> Debug menu (stats, hitboxes, teleport)
 - $(c6)num 8        $(reset) -> Lower master volume by 5%
 - $(c6)num 9        $(reset) -> Raise master volume by 5%
 - $(c6)m            $(reset) -> Mute audio
@@ -47,7 +47,9 @@ $(dim)
 ==    $(reset)$(c6)Credits                                        $(reset)$(dim) ==
 ========================================================$(reset)
 
-All code, music, assets, etc. done by $(c2)Dave Eddy$(reset).
+Almost all code, music, assets, etc. done by $(c2)Dave Eddy$(reset).
+$(c2)@sioworker$(reset) modified: 
+ $(bold)39'119$(reset) characters of code, $(bold)4'976$(reset) characters of level data, $(bold)1'294$(reset) pixels, and $(bold)1$(reset) audio track.
 
 The Game Itself
  - Language       $(c6)Rust$(reset)
@@ -59,8 +61,10 @@ Assets
                   $(c6)https://deep-fold.itch.io/space-background-generator$(reset)
  - SFX            Generated via
                   $(c6)https://raylibtech.itch.io/rfxgen$(reset)
- - Music          All songs written by $(c2)Dave Eddy$(reset)
+ - Music          4 songs written by $(c2)Dave Eddy$(reset)
                   $(c6)https://music.daveeddy.com$(reset)
+                  1 song written by $(c2)@sioworker$(reset)
+                  $(c6)https://bigos.opik.net$(reset)
 
 Like the music? Listen to the full album in your terminal:
 

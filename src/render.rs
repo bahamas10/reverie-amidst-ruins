@@ -7,10 +7,11 @@
 use anyhow::{Context, Result, bail};
 use image::{RgbaImage, imageops};
 
-use crate::camera::Camera;
-use crate::color::Palette;
-use crate::level::{LevelDefinition, TILE_SIZE};
+use crate::color::{Color, Palette};
+use crate::debug::Overlays;
+use crate::level::{SPRING_HEIGHT, Spike, TILE_SIZE};
 use crate::player::{HITBOX_HEIGHT, HITBOX_WIDTH, Player};
+use crate::screen::{Crumble, LevelScreen};
 
 // animations
 const COIN_ANIMATION_NUM: f32 = 7.0; // rotations per second
@@ -27,12 +28,35 @@ const SCANLINE_BRIGHTNESS: f32 = 1.55;
 const SHADOW_OFFSET: (i32, i32) = (3, 3);
 const SHADOW_OPACITY: u8 = 50;
 
+// debug hitboxes
+const HITBOX_HURTBOX: Color = [0xff, 0x30, 0x30];
+const HITBOX_PICKUP: Color = [0xff, 0xe0, 0x30];
+const HITBOX_BLOCK: Color = [0x30, 0x80, 0xff];
+const HITBOX_ENTITY: Color = [0x30, 0xff, 0x60];
+const HITBOX_FILL_OPACITY: f32 = 0.25;
+
 // locations of the tiles in tileset PNG
 const GROUND: (usize, usize) = (0, 0);
 const GROUND_TOP: (usize, usize) = (16, 0);
 const COIN_FRAMES: [(usize, usize); 4] = [(32, 0), (48, 0), (64, 0), (48, 0)];
 const PLAYER: (usize, usize) = (80, 0);
 const GOAL: (usize, usize) = (96, 0);
+const SPRING: (usize, usize) = (112, 0);
+const JUMPTHRU_LEFT: (usize, usize) = (192, 0);
+const JUMPTHRU: (usize, usize) = (208, 0);
+const JUMPTHRU_RIGHT: (usize, usize) = (224, 0);
+const SPIKE_UP: (usize, usize) = (240, 0);
+const SPIKE_DOWN: (usize, usize) = (256, 0);
+const SPIKE_RIGHT: (usize, usize) = (272, 0);
+const SPIKE_LEFT: (usize, usize) = (288, 0);
+const CRUMBLE: (usize, usize) = (304, 0);
+
+// how tall the jump thru plank looks (only the top edge is solid)
+const JUMPTHRU_HEIGHT: i32 = 5;
+
+// spring shoots up then goes back down in steps, (frame, seconds)
+const SPRING_FRAMES: [((usize, usize), f32); 4] =
+    [((128, 0), 0.08), ((144, 0), 0.05), ((160, 0), 0.05), ((176, 0), 0.05)];
 
 // images
 const BACKGROUND_STORM: &[u8] =
@@ -56,8 +80,17 @@ const SOURCE_PALETTE: Palette = [
 ];
 
 /// Render "title" screen
-pub fn title(frame: &mut RgbaImage) -> Result<()> {
-    overlay_image(frame, TITLE)
+pub fn title(frame: &mut RgbaImage, selected: usize) -> Result<()> {
+    overlay_image(frame, TITLE)?;
+    for (i, option) in ["PLAY", "EDITOR"].iter().enumerate() {
+        let y = 130 + i as i32 * 13;
+        if i == selected {
+            text(frame, &format!("> {option} <"), y, 1, [255; 3]);
+        } else {
+            text(frame, option, y, 1, [0x80; 3]);
+        }
+    }
+    Ok(())
 }
 
 /// Render "end" screen
@@ -111,14 +144,15 @@ pub fn post_process(frame: &mut RgbaImage) {
 
 // convert the level to an image
 pub fn level(
-    level: &LevelDefinition,
+    screen: &LevelScreen,
     player: Option<&Player>,
-    camera: &Camera,
-    coins: &[(usize, usize)],
-    elapsed: f32,
     width: u32,
     height: u32,
 ) -> Result<RgbaImage> {
+    let (level, camera) = (&screen.level, &screen.camera);
+    let (coins, springs) = (&screen.remaining_coins, &screen.springs);
+    let elapsed = screen.elapsed;
+
     // load the background and get it ready to parallax
     let background_data = match level.background.as_str() {
         "snow" => BACKGROUND_SNOW,
@@ -186,6 +220,89 @@ pub fn level(
         }
     }
 
+    // jump thrus get end caps, same idea as the ground tops
+    for (y, row) in level.jumpthrus.iter().enumerate() {
+        for x in (0..row.len()).filter(|&x| row[x]) {
+            let left = x > 0 && row[x - 1];
+            let right = row.get(x + 1) == Some(&true);
+            let tile = match (left, right) {
+                (false, true) => JUMPTHRU_LEFT,
+                (true, false) => JUMPTHRU_RIGHT,
+                _ => JUMPTHRU,
+            };
+            sprite(
+                &mut frame,
+                &tileset,
+                tile,
+                camera.world_to_screen(
+                    (x * TILE_SIZE) as f32,
+                    (y * TILE_SIZE) as f32,
+                ),
+                &level.palette,
+                false,
+            );
+        }
+    }
+
+    // crumble blocks wiggle while shaking, gone ones aren't drawn
+    for (&(x, y), crumble) in level.crumbles.iter().zip(&screen.crumbles) {
+        let shake = match crumble {
+            Crumble::Intact => 0,
+            Crumble::Shaking(time) => (time * 60.0) as i32 % 3 - 1,
+            Crumble::Gone(_) => continue,
+        };
+        let (sx, sy) = camera
+            .world_to_screen((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32);
+        sprite(
+            &mut frame,
+            &tileset,
+            CRUMBLE,
+            (sx + shake, sy),
+            &level.palette,
+            false,
+        );
+    }
+
+    // moving platforms use the jump thru planks
+    for mover in &level.movers {
+        let (mx, my) = mover.position(screen.mover_time);
+        for i in 0..mover.width {
+            let tile = match (i == 0, i + 1 == mover.width) {
+                (true, false) => JUMPTHRU_LEFT,
+                (false, true) => JUMPTHRU_RIGHT,
+                _ => JUMPTHRU,
+            };
+            sprite(
+                &mut frame,
+                &tileset,
+                tile,
+                camera.world_to_screen(mx + (i * TILE_SIZE) as f32, my),
+                &level.palette,
+                false,
+            );
+        }
+    }
+
+    for &((x, y), spike) in &level.spikes {
+        let tile = match spike {
+            Spike::Up => SPIKE_UP,
+            Spike::Down => SPIKE_DOWN,
+            Spike::Right => SPIKE_RIGHT,
+            Spike::Left => SPIKE_LEFT,
+        };
+        sprite(
+            &mut frame,
+            &tileset,
+            tile,
+            camera.world_to_screen(
+                (x * TILE_SIZE) as f32,
+                (y * TILE_SIZE) as f32,
+            ),
+            &level.palette,
+            false,
+        );
+    }
+
     // loop through the coin sprites and animate them
     let coin = COIN_FRAMES
         [(elapsed * COIN_ANIMATION_NUM) as usize % COIN_FRAMES.len()];
@@ -203,18 +320,34 @@ pub fn level(
         );
     }
 
+    for (&(x, y), &since) in level.springs.iter().zip(springs) {
+        sprite(
+            &mut frame,
+            &tileset,
+            spring_frame(since),
+            camera.world_to_screen(
+                (x * TILE_SIZE) as f32,
+                (y * TILE_SIZE) as f32,
+            ),
+            &level.palette,
+            false,
+        );
+    }
+
     // draw goal
-    sprite(
-        &mut frame,
-        &tileset,
-        GOAL,
-        camera.world_to_screen(
-            (level.goal.0 * TILE_SIZE) as f32,
-            (level.goal.1 * TILE_SIZE) as f32,
-        ),
-        &level.palette,
-        false,
-    );
+    if let Some((x, y)) = level.goal {
+        sprite(
+            &mut frame,
+            &tileset,
+            GOAL,
+            camera.world_to_screen(
+                (x * TILE_SIZE) as f32,
+                (y * TILE_SIZE) as f32,
+            ),
+            &level.palette,
+            false,
+        );
+    }
 
     // draw player - it's smaller
     if let Some(player) = player {
@@ -230,6 +363,256 @@ pub fn level(
     }
 
     Ok(frame)
+}
+
+fn spring_frame(mut since: f32) -> (usize, usize) {
+    for (frame, time) in SPRING_FRAMES {
+        if since < time {
+            return frame;
+        }
+        since -= time;
+    }
+    SPRING
+}
+
+// debug hitboxes on top of the level
+pub fn hitboxes(
+    frame: &mut RgbaImage,
+    screen: &LevelScreen,
+    overlays: &Overlays,
+) {
+    let (level, player, camera) =
+        (&screen.level, &screen.player, &screen.camera);
+    let coins = &screen.remaining_coins;
+    let tile = (TILE_SIZE as i32, TILE_SIZE as i32);
+    let at = |(x, y): (usize, usize)| {
+        camera.world_to_screen((x * TILE_SIZE) as f32, (y * TILE_SIZE) as f32)
+    };
+
+    // solid includes crumble blocks that are still there
+    if overlays.blocks {
+        for (y, row) in screen.solid.iter().enumerate() {
+            for x in (0..row.len()).filter(|&x| row[x]) {
+                hitbox(frame, at((x, y)), tile, HITBOX_BLOCK);
+            }
+        }
+        for (y, row) in level.jumpthrus.iter().enumerate() {
+            for x in (0..row.len()).filter(|&x| row[x]) {
+                let size = (tile.0, JUMPTHRU_HEIGHT);
+                hitbox(frame, at((x, y)), size, HITBOX_BLOCK);
+            }
+        }
+        for mover in &level.movers {
+            let (mx, my) = mover.position(screen.mover_time);
+            let size = ((mover.width * TILE_SIZE) as i32, JUMPTHRU_HEIGHT);
+            hitbox(frame, camera.world_to_screen(mx, my), size, HITBOX_BLOCK);
+        }
+    }
+
+    // coins and the goal use the whole tile
+    if overlays.entities {
+        for &coin in coins.iter().chain(&level.goal) {
+            hitbox(frame, at(coin), tile, HITBOX_ENTITY);
+        }
+    }
+
+    if overlays.entities {
+        let top = (TILE_SIZE - SPRING_HEIGHT) as i32;
+        for &spring in &level.springs {
+            let (x, y) = at(spring);
+            hitbox(
+                frame,
+                (x, y + top),
+                (tile.0, SPRING_HEIGHT as i32),
+                HITBOX_ENTITY,
+            );
+        }
+    }
+
+    if overlays.entities {
+        for &(spike_at, spike) in &level.spikes {
+            let ((x, y), (sx, sy, w, h)) = (at(spike_at), spike.hitbox());
+            let size = (w as i32, h as i32);
+            hitbox(frame, (x + sx as i32, y + sy as i32), size, HITBOX_ENTITY);
+        }
+    }
+
+    // there's only 1 player box right now so these are the same lol
+    let player_at = camera.world_to_screen(player.x, player.y);
+    let size = (HITBOX_WIDTH as i32, HITBOX_HEIGHT as i32);
+    if overlays.hurtbox {
+        hitbox(frame, player_at, size, HITBOX_HURTBOX);
+    }
+    if overlays.pickup {
+        hitbox(frame, player_at, size, HITBOX_PICKUP);
+    }
+}
+
+// solid outline, see-through inside
+fn hitbox(
+    frame: &mut RgbaImage,
+    (x, y): (i32, i32),
+    (w, h): (i32, i32),
+    color: Color,
+) {
+    for py in y.max(0)..(y + h).min(frame.height() as i32) {
+        for px in x.max(0)..(x + w).min(frame.width() as i32) {
+            let edge = px == x || py == y || px == x + w - 1 || py == y + h - 1;
+            let alpha = if edge { 1.0 } else { HITBOX_FILL_OPACITY };
+
+            let pixel = frame.get_pixel_mut(px as u32, py as u32);
+            for (channel, c) in pixel.0[..3].iter_mut().zip(color) {
+                *channel =
+                    (*channel as f32 * (1.0 - alpha) + c as f32 * alpha) as u8;
+            }
+        }
+    }
+}
+
+/// Draw level chars as their tiles, for the editor
+pub fn icons(
+    frame: &mut RgbaImage,
+    icons: &[(char, (i32, i32))],
+    palette: &Palette,
+) -> Result<()> {
+    let tileset = image::load_from_memory(TILESET)
+        .context("could not decode tileset.png")?
+        .into_rgba8();
+
+    for &(c, (x, y)) in icons {
+        let source = match c {
+            'G' | 'P' => GROUND_TOP,
+            'C' => COIN_FRAMES[0],
+            '^' => SPRING,
+            '-' | '=' => JUMPTHRU,
+            'X' => SPIKE_UP,
+            '%' => CRUMBLE,
+            'F' => GOAL,
+            // player stands on the bottom of the spawn tile
+            'S' => {
+                let (w, h) = (HITBOX_WIDTH as i32, HITBOX_HEIGHT as i32);
+                let t = TILE_SIZE as i32;
+                let at = (x + (t - w) / 2, y + t - h);
+                let (size, palette) = ((w as u32, h as u32), &SOURCE_PALETTE);
+                sprite_sized(frame, &tileset, PLAYER, at, palette, false, size);
+                continue;
+            }
+            // platform markers aren't in the tileset
+            '*' => {
+                text_at(frame, "*", (x + 3, y + 1), 2, palette[3]);
+                continue;
+            }
+            _ => continue,
+        };
+        sprite(frame, &tileset, source, (x, y), palette, false);
+    }
+
+    Ok(())
+}
+
+// tiny 5x7 font
+fn glyph(c: char) -> [u8; 7] {
+    match c.to_ascii_uppercase() {
+        'A' => [0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
+        'B' => [0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e],
+        'C' => [0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e],
+        'D' => [0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e],
+        'E' => [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f],
+        'F' => [0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10],
+        'G' => [0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f],
+        'H' => [0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11],
+        'I' => [0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e],
+        'J' => [0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0c],
+        'K' => [0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11],
+        'L' => [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f],
+        'M' => [0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11],
+        'N' => [0x11, 0x11, 0x19, 0x15, 0x13, 0x11, 0x11],
+        'O' => [0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
+        'P' => [0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10],
+        'Q' => [0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d],
+        'R' => [0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11],
+        'S' => [0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e],
+        'T' => [0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
+        'U' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e],
+        'V' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x0a, 0x04],
+        'W' => [0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0a],
+        'X' => [0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11],
+        'Y' => [0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04],
+        'Z' => [0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f],
+        '0' => [0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e],
+        '1' => [0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e],
+        '2' => [0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f],
+        '3' => [0x1f, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0e],
+        '4' => [0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02],
+        '5' => [0x1f, 0x10, 0x1e, 0x01, 0x01, 0x11, 0x0e],
+        '6' => [0x06, 0x08, 0x10, 0x1e, 0x11, 0x11, 0x0e],
+        '7' => [0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08],
+        '8' => [0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e],
+        '9' => [0x0e, 0x11, 0x11, 0x0f, 0x01, 0x02, 0x0c],
+        ':' => [0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x0c, 0x00],
+        '-' => [0x00, 0x00, 0x00, 0x1f, 0x00, 0x00, 0x00],
+        '.' => [0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x0c],
+        ',' => [0x00, 0x00, 0x00, 0x00, 0x0c, 0x04, 0x08],
+        '(' => [0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02],
+        ')' => [0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08],
+        '>' => [0x10, 0x08, 0x04, 0x02, 0x04, 0x08, 0x10],
+        '<' => [0x01, 0x02, 0x04, 0x08, 0x04, 0x02, 0x01],
+        '*' => [0x00, 0x15, 0x0e, 0x1f, 0x0e, 0x15, 0x00],
+        '+' => [0x00, 0x04, 0x04, 0x1f, 0x04, 0x04, 0x00],
+        '/' => [0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10],
+        _ => [0; 7],
+    }
+}
+
+/// Draw text centered horizontally
+pub fn text(
+    frame: &mut RgbaImage,
+    text: &str,
+    y: i32,
+    scale: i32,
+    color: Color,
+) {
+    let x = (frame.width() as i32 - text_width(text, scale)) / 2;
+    text_at(frame, text, (x, y), scale, color);
+}
+
+pub fn text_width(text: &str, scale: i32) -> i32 {
+    (text.chars().count() as i32 * 6 - 1) * scale
+}
+
+/// Draw text with its top left corner at x, y
+pub fn text_at(
+    frame: &mut RgbaImage,
+    text: &str,
+    (x, y): (i32, i32),
+    scale: i32,
+    color: Color,
+) {
+    for (i, c) in text.chars().enumerate() {
+        for (row, bits) in glyph(c).iter().enumerate() {
+            for col in (0..5).filter(|col| bits >> (4 - col) & 1 == 1) {
+                let px = x + (i as i32 * 6 + col) * scale;
+                let py = y + row as i32 * scale;
+                for (dx, dy) in
+                    (0..scale).flat_map(|dx| (0..scale).map(move |dy| (dx, dy)))
+                {
+                    let (px, py) = ((px + dx) as u32, (py + dy) as u32);
+                    if let Some(p) = frame.get_pixel_mut_checked(px, py) {
+                        p.0 = [color[0], color[1], color[2], 255];
+                    }
+                }
+            }
+        }
+    }
+}
+
+// used behind the debug menu so the text is readable
+pub fn darken(frame: &mut RgbaImage, (x, y): (u32, u32), (w, h): (u32, u32)) {
+    for (px, py, pixel) in frame.enumerate_pixels_mut() {
+        if (x..x + w).contains(&px) && (y..y + h).contains(&py) {
+            pixel.0[..3].iter_mut().for_each(|c| *c /= 4);
+        }
+    }
 }
 
 /**

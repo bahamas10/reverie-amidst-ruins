@@ -56,6 +56,15 @@ impl Gamepad {
                 EventType::ButtonPressed(Button::West, _) => {
                     state.restart_pressed = true;
                 }
+                EventType::ButtonPressed(
+                    Button::DPadLeft
+                    | Button::DPadRight
+                    | Button::DPadUp
+                    | Button::DPadDown,
+                    _,
+                ) => {
+                    state.arrow_pressed = true;
+                }
                 EventType::Disconnected => {
                     self.active = None;
                 }

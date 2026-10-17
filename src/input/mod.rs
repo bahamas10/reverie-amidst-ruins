@@ -25,6 +25,9 @@ pub struct Input {
     // just pressed jump
     pub jump_pressed: bool,
 
+    // just pressed any arrow (menus)
+    pub arrow_pressed: bool,
+
     // is holding / pressed enter
     pub confirm: bool,
 
@@ -39,9 +42,6 @@ pub struct Input {
 
     // just pressed palette randomize
     pub palette_randomize_pressed: bool,
-
-    // just pressed debug toggle
-    pub debug_toggle_pressed: bool,
 
     // just pressed level restart
     pub restart_pressed: bool,
@@ -86,6 +86,7 @@ impl Input {
 
         // one-shot buttons are reset / recomputed every frame
         self.jump_pressed = keyboard.jump_pressed || gamepad.jump_pressed;
+        self.arrow_pressed = keyboard.arrow_pressed || gamepad.arrow_pressed;
         self.confirm_pressed =
             keyboard.confirm_pressed || gamepad.confirm_pressed;
         self.screenshot_pressed =
@@ -94,8 +95,6 @@ impl Input {
             keyboard.effects_toggle_pressed || gamepad.effects_toggle_pressed;
         self.palette_randomize_pressed = keyboard.palette_randomize_pressed
             || gamepad.palette_randomize_pressed;
-        self.debug_toggle_pressed =
-            keyboard.debug_toggle_pressed || gamepad.debug_toggle_pressed;
         self.restart_pressed =
             keyboard.restart_pressed || gamepad.restart_pressed;
         self.mute_toggle_pressed =
@@ -118,12 +117,12 @@ struct InputState {
     right: bool,
     jump: bool,
     jump_pressed: bool,
+    arrow_pressed: bool,
     confirm: bool,
     confirm_pressed: bool,
     screenshot_pressed: bool,
     effects_toggle_pressed: bool,
     palette_randomize_pressed: bool,
-    debug_toggle_pressed: bool,
     restart_pressed: bool,
     mute_toggle_pressed: bool,
     volume_down_pressed: bool,
@@ -137,11 +136,11 @@ impl InputState {
     /// Clear just the one-shot button presses
     fn clear_pressed(&mut self) {
         self.jump_pressed = false;
+        self.arrow_pressed = false;
         self.confirm_pressed = false;
         self.screenshot_pressed = false;
         self.effects_toggle_pressed = false;
         self.palette_randomize_pressed = false;
-        self.debug_toggle_pressed = false;
         self.restart_pressed = false;
         self.mute_toggle_pressed = false;
         self.volume_down_pressed = false;
