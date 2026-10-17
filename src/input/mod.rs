@@ -66,6 +66,17 @@ pub struct Input {
 }
 
 impl Input {
+    /// A synthetic one-frame input: the movement and jump keys set, and every
+    /// other key up. Used by the level validator, which plays the game itself.
+    pub fn scripted(
+        left: bool,
+        right: bool,
+        jump: bool,
+        jump_pressed: bool,
+    ) -> Self {
+        Self { left, right, jump, jump_pressed, ..Self::default() }
+    }
+
     pub fn new() -> Self {
         Self::default()
     }

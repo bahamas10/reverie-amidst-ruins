@@ -25,6 +25,7 @@ mod render;
 mod screen;
 mod stats;
 mod terminal;
+mod validator;
 
 use audio::SoundEffect;
 use screen::{LevelScreen, Screen};
@@ -71,6 +72,13 @@ fn load_level(index: usize) -> Result<LevelScreen> {
 fn main() -> Result<()> {
     // parse args
     let args = args::parse();
+
+    // Validation is a headless mode: it must not touch the terminal, audio, or a
+    // gamepad, and it exits without starting the game.
+    if let Some(target) = &args.validate {
+        return validator::run(target.as_deref(), LEVELS);
+    }
+
     let start_level = args.level as usize - 1;
 
     // load the first level behind the title screen
