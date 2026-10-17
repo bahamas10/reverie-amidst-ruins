@@ -12,6 +12,9 @@ const GRAVITY: f32 = 800.0;
 const JUMP_SPEED: f32 = 300.0;
 const JUMP_RELEASE_SPEED: f32 = 100.0;
 const MAX_FALL_SPEED: f32 = 450.0;
+/// How long a jump press is remembered while the player is airborne, in
+/// seconds.
+const JUMP_BUFFER: f32 = 0.1;
 const TILE_SIZE_F32: f32 = TILE_SIZE as f32;
 pub const HITBOX_WIDTH: f32 = 12.0;
 pub const HITBOX_HEIGHT: f32 = 15.0;
@@ -44,6 +47,7 @@ pub struct Player {
     pub facing: PlayerFacing,
     pub spawn_x: f32,
     pub spawn_y: f32,
+    jump_buffer: f32,
 }
 
 impl Player {
@@ -57,6 +61,7 @@ impl Player {
             facing: PlayerFacing::Right,
             spawn_x: x,
             spawn_y: y,
+            jump_buffer: 0.0,
         }
     }
 
@@ -66,6 +71,7 @@ impl Player {
         self.vx = 0.0;
         self.vy = 0.0;
         self.grounded = false;
+        self.jump_buffer = 0.0;
     }
 
     pub fn overlaps(&self, x: f32, y: f32, width: f32, height: f32) -> bool {
@@ -101,12 +107,21 @@ impl Player {
         self.vx = approach(self.vx, target_speed, acceleration * delta);
         self.move_x(self.vx * delta, blocks, max_x);
 
-        // handle jump
-        let jumped = input.jump_pressed && self.grounded;
+        // Handle jump. A press is remembered for a short window: the collision
+        // skin means that above ~200 fps the floor is only re-detected every
+        // *other* frame, so a one-frame press often lands on a frame where
+        // `grounded` is momentarily false. Buffering the press makes it fire on
+        // the next grounded frame instead of being silently dropped.
+        if input.jump_pressed {
+            self.jump_buffer = JUMP_BUFFER;
+        }
+        let jumped = self.grounded && self.jump_buffer > 0.0;
         if jumped {
             self.vy = -JUMP_SPEED;
             self.grounded = false;
+            self.jump_buffer = 0.0;
         }
+        self.jump_buffer = (self.jump_buffer - delta).max(0.0);
 
         // releasing jump early cuts the remaining upward speed
         if !input.jump && self.vy < -JUMP_RELEASE_SPEED {
@@ -192,4 +207,62 @@ fn hits_solid(x: f32, y: f32, blocks: &[Vec<bool>]) -> bool {
                 .unwrap_or(false)
         })
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A 10x4 level with only its bottom row solid.
+    fn floor() -> Vec<Vec<bool>> {
+        let mut blocks = vec![vec![false; 10]; 4];
+        blocks[3].fill(true);
+        blocks
+    }
+
+    #[test]
+    fn a_jump_press_always_jumps_at_high_frame_rates() {
+        // Above ~200 fps the collision skin means the floor is only
+        // re-detected every *other* frame, so a one-frame jump press lands on
+        // a non-grounded frame half the time. The press must still jump.
+        let blocks = floor();
+        let max_x = 10.0 * TILE_SIZE as f32 - HITBOX_WIDTH;
+        let delta = 1.0 / 240.0;
+        let idle = Input::default();
+        let mut holding = Input::default();
+        holding.jump = true;
+        let mut press = Input::default();
+        press.jump = true;
+        press.jump_pressed = true;
+
+        // Try both parities of the frame the press lands on: the bug depends
+        // on it, since the floor is re-detected on alternating frames.
+        for phase in 0..2 {
+            let mut player = Player::new(0.0, 0.0);
+            for _ in 0..1000 {
+                player.update(&idle, delta, &blocks, max_x);
+                if player.grounded {
+                    break;
+                }
+            }
+            assert!(player.grounded, "phase {phase}: the player lands");
+            let rest = player.y;
+
+            for _ in 0..phase {
+                player.update(&idle, delta, &blocks, max_x);
+            }
+            player.update(&press, delta, &blocks, max_x);
+
+            let mut peak = player.y;
+            for _ in 0..24 {
+                player.update(&holding, delta, &blocks, max_x);
+                peak = peak.min(player.y);
+            }
+
+            assert!(
+                peak < rest - 4.0,
+                "phase {phase}: the press was dropped (rest {rest}, peak {peak})"
+            );
+        }
+    }
 }
