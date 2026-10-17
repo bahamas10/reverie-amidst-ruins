@@ -469,6 +469,47 @@ fn hitbox(
     }
 }
 
+/// Draw level chars as their tiles, for the editor
+pub fn icons(
+    frame: &mut RgbaImage,
+    icons: &[(char, (i32, i32))],
+    palette: &Palette,
+) -> Result<()> {
+    let tileset = image::load_from_memory(TILESET)
+        .context("could not decode tileset.png")?
+        .into_rgba8();
+
+    for &(c, (x, y)) in icons {
+        let source = match c {
+            'G' | 'P' => GROUND_TOP,
+            'C' => COIN_FRAMES[0],
+            '^' => SPRING,
+            '-' | '=' => JUMPTHRU,
+            'X' => SPIKE_UP,
+            '%' => CRUMBLE,
+            'F' => GOAL,
+            // player stands on the bottom of the spawn tile
+            'S' => {
+                let (w, h) = (HITBOX_WIDTH as i32, HITBOX_HEIGHT as i32);
+                let t = TILE_SIZE as i32;
+                let at = (x + (t - w) / 2, y + t - h);
+                let (size, palette) = ((w as u32, h as u32), &SOURCE_PALETTE);
+                sprite_sized(frame, &tileset, PLAYER, at, palette, false, size);
+                continue;
+            }
+            // platform markers aren't in the tileset
+            '*' => {
+                text_at(frame, "*", (x + 3, y + 1), 2, palette[3]);
+                continue;
+            }
+            _ => continue,
+        };
+        sprite(frame, &tileset, source, (x, y), palette, false);
+    }
+
+    Ok(())
+}
+
 // tiny 5x7 font
 fn glyph(c: char) -> [u8; 7] {
     match c.to_ascii_uppercase() {
@@ -516,6 +557,9 @@ fn glyph(c: char) -> [u8; 7] {
         ')' => [0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08],
         '>' => [0x10, 0x08, 0x04, 0x02, 0x04, 0x08, 0x10],
         '<' => [0x01, 0x02, 0x04, 0x08, 0x04, 0x02, 0x01],
+        '*' => [0x00, 0x15, 0x0e, 0x1f, 0x0e, 0x15, 0x00],
+        '+' => [0x00, 0x04, 0x04, 0x1f, 0x04, 0x04, 0x00],
+        '/' => [0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10],
         _ => [0; 7],
     }
 }
@@ -528,8 +572,22 @@ pub fn text(
     scale: i32,
     color: Color,
 ) {
-    let width = (text.chars().count() as i32 * 6 - 1) * scale;
-    let x = (frame.width() as i32 - width) / 2;
+    let x = (frame.width() as i32 - text_width(text, scale)) / 2;
+    text_at(frame, text, (x, y), scale, color);
+}
+
+pub fn text_width(text: &str, scale: i32) -> i32 {
+    (text.chars().count() as i32 * 6 - 1) * scale
+}
+
+/// Draw text with its top left corner at x, y
+pub fn text_at(
+    frame: &mut RgbaImage,
+    text: &str,
+    (x, y): (i32, i32),
+    scale: i32,
+    color: Color,
+) {
     for (i, c) in text.chars().enumerate() {
         for (row, bits) in glyph(c).iter().enumerate() {
             for col in (0..5).filter(|col| bits >> (4 - col) & 1 == 1) {

@@ -109,8 +109,13 @@ fn main() -> Result<()> {
     let l = level::LevelDefinition::parse(DEBUG_LEVEL)?;
     level_names.push(format!("{} ({}, {})", l.name, l.background, l.music));
 
-    // what the editor can open
-    let worlds: Vec<_> = LEVELS.iter().copied().chain([DEBUG_LEVEL]).collect();
+    // built in levels, for the editor when it can't read levels/
+    let mut worlds: Vec<_> = LEVELS
+        .iter()
+        .enumerate()
+        .map(|(i, source)| (format!("level{}.txt", i + 1), *source))
+        .collect();
+    worlds.push(("debug.txt".into(), DEBUG_LEVEL));
 
     // start the title music unless audio was disabled
     let mut audio = if args.no_audio {
@@ -149,6 +154,8 @@ fn main() -> Result<()> {
     // game loop
     let mut last_time = Instant::now();
     let mut finished = false;
+    // set while playing a world from the editor
+    let mut testing: Option<editor::Editor> = None;
     while !input.quit {
         let now = Instant::now();
         let delta = now.duration_since(last_time);
@@ -165,18 +172,51 @@ fn main() -> Result<()> {
         if menu_was_open && !menu_open {
             term_handle.clear_screen()?;
         }
-        // the editor reads keys itself, esc goes back instead of quitting
+        // the editor reads keys itself, only quit and releases go through
         if let Screen::Editor(editor) = &mut screen {
-            let leave = !menu_was_open
-                && !menu_open
-                && editor.update(&events, &worlds, delta.as_secs_f32())?;
-            events.retain(|key| key.code != KeyCode::Esc);
-            if leave {
-                screen = Screen::Title(load_level(start_level)?);
-                if let Some(audio) = &audio {
-                    audio.play_music("reverie-amidst-ruins")?;
+            let exit = if menu_was_open || menu_open {
+                None
+            } else {
+                editor.update(&events, delta.as_secs_f32())?
+            };
+            let typing = editor.typing();
+            events.retain(|key| {
+                key.kind == KeyEventKind::Release
+                    || !typing && matches!(key.code, KeyCode::Char('q' | 'Q'))
+            });
+            match exit {
+                Some(editor::Exit::Title) => {
+                    screen = Screen::Title(load_level(start_level)?);
+                    if let Some(audio) = &audio {
+                        audio.play_music("reverie-amidst-ruins")?;
+                    }
                 }
+                Some(editor::Exit::Test(level_screen)) => {
+                    if let Some(audio) = &audio {
+                        audio.play_music(&level_screen.level.music)?;
+                    }
+                    let level = Screen::Level(*level_screen);
+                    if let Screen::Editor(editor) =
+                        std::mem::replace(&mut screen, level)
+                    {
+                        testing = Some(editor);
+                    }
+                }
+                Some(editor::Exit::Music(song)) => {
+                    if let Some(audio) = &audio {
+                        audio.play_music(&song)?;
+                    }
+                }
+                None => {}
             }
+        }
+        // esc (or the finish) while testing goes back to the editor
+        let mut back_to_editor = false;
+        if testing.is_some() && matches!(screen, Screen::Level(_)) {
+            back_to_editor = events.iter().any(|key| {
+                key.code == KeyCode::Esc && key.kind == KeyEventKind::Press
+            });
+            events.retain(|key| key.code != KeyCode::Esc);
         }
         if menu_was_open || menu_open {
             let mut releases = events.clone();
@@ -433,7 +473,9 @@ fn main() -> Result<()> {
                             level::TILE_SIZE as f32,
                         )
                     });
-                    if goal {
+                    if goal && testing.is_some() {
+                        back_to_editor = true;
+                    } else if goal {
                         stats.levels_beaten += 1;
                         stats.coins_collected += level_screen.coin_count;
 
@@ -458,6 +500,13 @@ fn main() -> Result<()> {
 
         if died && let Screen::Level(level_screen) = &mut screen {
             level_screen.reset_crumbles();
+        }
+
+        if back_to_editor && let Some(editor) = testing.take() {
+            screen = Screen::Editor(editor);
+            if let Some(audio) = &audio {
+                audio.play_music("blueprints")?;
+            }
         }
 
         if let Some(index) = next_level {
