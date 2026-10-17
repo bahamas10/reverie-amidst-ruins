@@ -45,6 +45,23 @@ Utility
 - `-` / `_` - Shrink image by one column
 - `+` / `=` - Grow image by one column
 
+Validating Levels
+-----------------
+
+A level is hand-drawn ASCII, so nothing stops it from being unbeatable - a jump
+one pixel too high, a gap one tile too wide, a coin walled in. `--validate`
+checks them with the game's own physics and reports whether the goal and every
+coin can be reached. It runs headless: no terminal, audio, or gamepad is used.
+
+    # every built-in level
+    cargo run --release -- --validate
+
+    # one level of your own
+    cargo run --release -- --validate path/to/level.txt
+
+It prints one line per level and exits non-zero if any of them is not fully
+playable, which is what CI runs on every push.
+
 How Does This Work?
 -------------------
 
@@ -72,6 +89,8 @@ Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/).
       ANSI
   - [terminal/kitty_graphics.rs](src/terminal/kitty_graphics.rs) - Helpers to
       output images to the terminal
+- [validator.rs](src/validator.rs) - Check that a level can be completed (the
+      `--validate` flag)
 
 Performance
 -----------

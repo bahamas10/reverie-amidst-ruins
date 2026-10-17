@@ -6,24 +6,29 @@ use gilrs::{Button, Event, EventType, GamepadId, Gilrs};
 
 use super::InputState;
 
+#[derive(Default)]
 pub(super) struct Gamepad {
     gilrs: Option<Gilrs>,
+
+    // opening the gamepad subsystem is deferred until it is actually polled:
+    // constructing an `Input` must stay cheap, because the level validator
+    // builds one for every simulated arc
+    started: bool,
 
     // if none (it currently always is at init) we keep track of the first
     // gamepad that talks
     active: Option<GamepadId>,
 }
 
-impl Default for Gamepad {
-    fn default() -> Self {
-        // gamepad support is option / best-effort so just throw away any init
-        // errors and store it as an option
-        Self { gilrs: Gilrs::new().ok(), active: None }
-    }
-}
-
 impl Gamepad {
     pub fn update(&mut self) -> InputState {
+        if !self.started {
+            self.started = true;
+            // gamepad support is option / best-effort so just throw away any
+            // init errors and store it as an option
+            self.gilrs = Gilrs::new().ok();
+        }
+
         let mut state = InputState::default();
 
         let Some(gilrs) = &mut self.gilrs else {

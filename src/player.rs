@@ -20,6 +20,7 @@ pub struct PlayerUpdate {
     pub jumped: bool,
 }
 
+#[derive(Clone)]
 pub enum PlayerFacing {
     Left,
     Right,
@@ -35,6 +36,7 @@ impl PlayerFacing {
     }
 }
 
+#[derive(Clone)]
 pub struct Player {
     pub x: f32,
     pub y: f32,

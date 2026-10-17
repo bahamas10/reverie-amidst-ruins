@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 #[derive(Debug, Parser)]
@@ -21,6 +23,10 @@ pub struct Cli {
     /// Level to start playing on
     #[arg(long, value_parser = clap::value_parser!(u16).range(1..), default_value_t = 1)]
     pub level: u16,
+
+    /// Validate level(s) and exit: every built-in level, or the file at PATH
+    #[arg(long, value_name = "PATH", num_args = 0..=1)]
+    pub validate: Option<Option<PathBuf>>,
 
     /// FPS to target
     #[arg(long, value_parser = clap::value_parser!(u16).range(1..), default_value_t = 60)]
